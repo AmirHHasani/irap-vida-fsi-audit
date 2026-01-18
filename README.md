@@ -13,9 +13,25 @@ This repository contains the core code for a two‑stage pipeline:
 
 ```
 stage1/
-  ...
+  stage1_main.py
+  stage1_config.py
+  stage1_data_loader.py
+  stage1_feature_engineering.py
+  stage1_model_training.py
+  stage1_visualizations.py
+  stage1_reporting.py
+  stage1_utils.py
 stage2/
-  ...
+  stage2_config.py
+  stage2_create_analysis_dataset.py
+  stage2_hierarchical_cf.py
+  stage2_cf_prescription_generation.py
+  stage2_treatment_codebook.py
+  reporters/
+README.md
+requirements-stage1.txt
+requirements-stage2.txt
+flowchart.png
 ```
 
 ## Requirements
@@ -42,4 +58,4 @@ Run the Stage 2 entry point (see `stage2/stage2_cf_prescription_generation.py` o
 
 ## Citation
 
-If this repo helped you, please cite the associated paper or report. Thank You
+If you use this code, cite the associated paper or report.
