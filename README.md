@@ -42,4 +42,4 @@ Large datasets and generated outputs are excluded from version control. Configur
 
 ## Citation
 
-If you use this code, cite the associated paper or report.
+If this repo helped you, please cite the associated paper or report. Thank You
