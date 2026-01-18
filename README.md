@@ -36,9 +36,6 @@ Run the Stage 1 entry point (see `stage1/stage1_main.py`) after configuring inpu
 
 Run the Stage 2 entry point (see `stage2/stage2_cf_prescription_generation.py` or other scripts) after setting parameters in `stage2/stage2_config.py`.
 
-## Data & Outputs
-
-Large datasets and generated outputs are excluded from version control. Configure local paths in the config files.
 
 ## Citation
 
