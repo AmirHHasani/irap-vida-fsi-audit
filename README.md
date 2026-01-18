@@ -27,7 +27,6 @@ stage2/
   stage2_hierarchical_cf.py
   stage2_cf_prescription_generation.py
   stage2_treatment_codebook.py
-  reporters/
 README.md
 requirements-stage1.txt
 requirements-stage2.txt
