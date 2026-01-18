@@ -1,7 +1,7 @@
 # A Two-Stage Machine Learning and Causal Forest Framework for Modelled Road Safety
 
 <p align="center">
-  <img src="flowchart.png" alt="Two-stage workflow flowchart" width="600" height="700" />
+  <img src="flowchart.png" alt="Two-stage workflow flowchart" width="500" height="500" />
 </p>
 
 This repository contains the core code for a two‑stage pipeline:
