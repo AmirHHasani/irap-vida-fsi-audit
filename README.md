@@ -1,6 +1,6 @@
 # A Two-Stage Machine Learning and Causal Forest Framework for Modelled Road Safety
 
-![Two-stage workflow flowchart](flowchart.png)
+<img src="flowchart.png" alt="Two-stage workflow flowchart" width="900" />
 
 This repository contains the core code for a two‑stage pipeline:
 
@@ -37,7 +37,6 @@ Run the Stage 1 entry point (see `stage1/stage1_main.py`) after configuring inpu
 ### Stage 2
 
 Run the Stage 2 entry point (see `stage2/stage2_cf_prescription_generation.py` or other scripts) after setting parameters in `stage2/stage2_config.py`.
-
 
 ## Citation
 
