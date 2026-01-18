@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.eggs/
+.venv/
+venv/
+ENV/
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data & outputs (keep repo lean)
+input_data/
+combine_data/
+catboost_info/
+stage1_outputs/
+stage2_outputs/
+
+# Logs
+*.log

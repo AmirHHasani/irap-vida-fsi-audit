@@ -1,0 +1,326 @@
+Attribute Name,Attribute Class Name,Code
+Carriageway label,Carriageway A of a divided road,1
+Carriageway label,Carriageway B of a divided road,2
+Carriageway label,Undivided road,3
+Carriageway label,Carriageway A of a motorcycle facility,4
+Carriageway label,Carriageway B of a motorcycle facility,5
+Motorcycle observed flow,8+ motorcycles,6
+Motorcycle observed flow,6 to 7 motorcycles,5
+Motorcycle observed flow,4 to 5 motorcycles,4
+Motorcycle observed flow,2 to 3 motorcycles,3
+Motorcycle observed flow,1 motorcycle,2
+Motorcycle observed flow,,1
+Bicycle observed flow,8+ bicycles,6
+Bicycle observed flow,6 to 7 bicycles,5
+Bicycle observed flow,4 to 5 bicycles,4
+Bicycle observed flow,2 to 3 bicycles,3
+Bicycle observed flow,1 bicycle,2
+Bicycle observed flow,,1
+Ped observed flow across,8+ pedestrians,6
+Ped observed flow across,6 to 7 pedestrians,5
+Ped observed flow across,4 to 5 pedestrians,4
+Ped observed flow across,2 to 3 pedestrians,3
+Ped observed flow across,1 pedestrian,2
+Ped observed flow across,,1
+Ped observed flow along - driver-side,8+ pedestrians,6
+Ped observed flow along - driver-side,6 to 7 pedestrians,5
+Ped observed flow along - driver-side,4 to 5 pedestrians,4
+Ped observed flow along - driver-side,2 to 3 pedestrians,3
+Ped observed flow along - driver-side,1 pedestrian,2
+Ped observed flow along - driver-side,,1
+Ped observed flow along - passenger-side,8+ pedestrians,6
+Ped observed flow along - passenger-side,6 to 7 pedestrians,5
+Ped observed flow along - passenger-side,4 to 5 pedestrians,4
+Ped observed flow along - passenger-side,2 to 3 pedestrians,3
+Ped observed flow along - passenger-side,1 pedestrian,2
+Ped observed flow along - passenger-side,,1
+Speed limit,≥150km/h,25
+Speed limit,140km/h,23
+Speed limit,130km/h,21
+Speed limit,120km/h,19
+Speed limit,110km/h,17
+Speed limit,100km/h,15
+Speed limit,90km/h,13
+Speed limit,80km/h,11
+Speed limit,70km/h,9
+Speed limit,60km/h,7
+Speed limit,50km/h,5
+Speed limit,40km/h,3
+Speed limit,<30km/h,1
+Speed limit,≥90mph,45
+Speed limit,80mph,43
+Speed limit,70mph,41
+Speed limit,60mph,39
+Speed limit,50mph,37
+Speed limit,40mph,35
+Speed limit,30mph,33
+Speed limit,<20mph,31
+Motorcycle speed limit,≥150km/h,25
+Motorcycle speed limit,140km/h,23
+Motorcycle speed limit,130km/h,21
+Motorcycle speed limit,120km/h,19
+Motorcycle speed limit,110km/h,17
+Motorcycle speed limit,100km/h,15
+Motorcycle speed limit,90km/h,13
+Motorcycle speed limit,80km/h,11
+Motorcycle speed limit,70km/h,9
+Motorcycle speed limit,60km/h,7
+Motorcycle speed limit,50km/h,5
+Motorcycle speed limit,40km/h,3
+Motorcycle speed limit,<30km/h,1
+Motorcycle speed limit,≥90mph,45
+Motorcycle speed limit,80mph,43
+Motorcycle speed limit,70mph,41
+Motorcycle speed limit,60mph,39
+Motorcycle speed limit,50mph,37
+Motorcycle speed limit,40mph,35
+Motorcycle speed limit,30mph,33
+Motorcycle speed limit,<20mph,31
+Truck speed limit,≥150km/h,25
+Truck speed limit,140km/h,23
+Truck speed limit,130km/h,21
+Truck speed limit,120km/h,19
+Truck speed limit,110km/h,17
+Truck speed limit,100km/h,15
+Truck speed limit,90km/h,13
+Truck speed limit,80km/h,11
+Truck speed limit,70km/h,9
+Truck speed limit,60km/h,7
+Truck speed limit,50km/h,5
+Truck speed limit,40km/h,3
+Truck speed limit,<30km/h,1
+Truck speed limit,≥90mph,45
+Truck speed limit,80mph,43
+Truck speed limit,70mph,41
+Truck speed limit,60mph,39
+Truck speed limit,50mph,37
+Truck speed limit,40mph,35
+Truck speed limit,30mph,33
+Truck speed limit,<20mph,31
+Speed differential,Present,2
+Speed differential,Not present,1
+Speed management,Present,2
+Speed management,Not present,1
+Number of lanes,Four or more,4
+Number of lanes,Three,3
+Number of lanes,Three and two,6
+Number of lanes,Two,2
+Number of lanes,Two and one,5
+Number of lanes,One,1
+Lane width,Narrow Om to <2.75m,3
+Lane width,Medium 2.75m to <3.25m,2
+Lane width,Wide ≥3.25m,1
+Curvature,Very sharp,4
+Curvature,Sharp,3
+Curvature,Moderate,2
+Curvature,Straight or gently curving,1
+Quality of curve,Poor,2
+Quality of curve,Not applicable,3
+Quality of curve,Adequate,1
+Upgrade cost,High,3
+Upgrade cost,Medium,2
+Upgrade cost,Low,1
+Median type,Centre line,11
+Median type,Wide centre line 0.3m to 1m,14
+Median type,Central hatching >1m,10
+Median type,Continuous central turning lane,8
+Median type,Flexible posts,9
+Median type,Physical median width 0 to <1m,7
+Median type,Physical median width 1 to <5m,6
+Median type,Physical median width 5 to <10m,5
+Median type,Safety barrier - concrete,2
+Median type,Safety barrier - metal,1
+Median type,Safety barrier - motorcycle friendly,12
+Median type,Safety barrier - wire rope,15
+Median type,Physical median width 10 to <20m,4
+Median type,Physical median width 220m,3
+Median type,One way,13
+Skid resistance,Unsealed poor,5
+Skid resistance,Unsealed adequate,4
+Skid resistance,Sealed - poor,3
+Skid resistance,Sealed-medium,2
+Skid resistance,Sealed adequate,1
+Road condition,Poor,3
+Road condition,Medium,2
+Road condition,Good,1
+Vehicle parking,Two side,3
+Vehicle parking,One side,2
+Vehicle parking,,1
+Grade,≥10%,5
+Grade,7.5% to <10%,4
+Grade,0% to <7.5%,1
+Roadworks,Major road works,3
+Roadworks,Minor road works,2
+Roadworks,No road works,1
+Sight distance,Poor,2
+Sight distance,Adequate,1
+Delineation,Poor,2
+Delineation,Adequate,1
+Street lighting,Present,2
+Street lighting,Not present,1
+Service road,Present,2
+Service road,Not present,1
+Centre line rumble strips,Present,2
+Centre line rumble strips,Not present,1
+Roadside severity - driver-side distance,0 to <1m,1
+Roadside severity - driver-side distance,1 to <5m,2
+Roadside severity - driver-side distance,5 to <10m,3
+Roadside severity - driver-side distance,≥10m,4
+Roadside severity - driver-side object,Cliff,10
+Roadside severity - driver-side object,Tree ≥10cm,11
+Roadside severity - driver-side object,"Rigid sign, post or pole ≥10cm",12
+Roadside severity - driver-side object,Unprotected safety barrier end,15
+Roadside severity - driver-side object,Aggressive vertical face,5
+Roadside severity - driver-side object,Upwards slope - roll over,6
+Roadside severity - driver-side object,Deep drainage ditch,8
+Roadside severity - driver-side object,Downwards slope,9
+Roadside severity - driver-side object,Low rigid object ≥20cm high,16
+Roadside severity - driver-side object,Rigid structure or building,13
+Roadside severity - driver-side object,Upwards slope - no roll over,7
+Roadside severity - driver-side object,Semi-rigid structure or building,14
+Roadside severity - driver-side object,Safety barrier - concrete,2
+Roadside severity - driver-side object,Safety barrier - metal,1
+Roadside severity - driver-side object,Safety barrier - wire rope,4
+Roadside severity - driver-side object,Safety barrier - motorcycle friendly,3
+Roadside severity - passenger-side distance,No object,17
+Roadside severity - passenger-side distance,0 to <1m,1
+Roadside severity - passenger-side distance,1 to <5m,2
+Roadside severity - passenger-side distance,5 to <10m,3
+Roadside severity - passenger-side distance,≥ 10m,4
+Roadside severity - passenger-side object,Cliff,10
+Roadside severity - passenger-side object,Tree ≥10cm,11
+Roadside severity - passenger-side object,"Rigid sign, post or pole ≥10cm",12
+Roadside severity - passenger-side object,Unprotected safety barrier end,15
+Roadside severity - passenger-side object,Aggressive vertical face,5
+Roadside severity - passenger-side object,Upwards slope - roll over,6
+Roadside severity - passenger-side object,Deep drainage ditch,8
+Roadside severity - passenger-side object,Downwards slope,9
+Roadside severity - passenger-side object,Low rigid object ≥20cm high,16
+Roadside severity - passenger-side object,Rigid structure or building,13
+Roadside severity - passenger-side object,Upwards slope - no roll over,7
+Roadside severity - passenger-side object,Semi-rigid structure or building,14
+Roadside severity - passenger-side object,Safety barrier - concrete,2
+Roadside severity - passenger-side object,Safety barrier - metal,1
+Roadside severity - passenger-side object,Safety barrier - wire rope,4
+Roadside severity - passenger-side object,Safety barrier - motorcycle friendly,3
+Roadside severity - passenger-side object,No object,17
+Shoulder rumble strips,Present,2
+Shoulder rumble strips,Not present,1
+Paved shoulder - driver-side,Present,2
+Paved shoulder - driver-side,,4
+Paved shoulder - driver-side,Narrow Om to <1m,3
+Paved shoulder - driver-side,Medium 1m to <2.4m,2
+Paved shoulder - driver-side,Wide ≥2.4m,1
+Paved shoulder - passenger-side,,4
+Paved shoulder - passenger-side,Narrow Om to <1m,3
+Paved shoulder - passenger-side,Medium 1m to <2.4m,2
+Paved shoulder - passenger-side,Wide ≥2.4m,1
+Intersection type,4-leg,8
+Intersection type,4-leg with protected turn lane,7
+Intersection type,4-leg signalised,10
+Intersection type,3-leg,4
+Intersection type,3-leg with protected turn lane,3
+Intersection type,Mini roundabout,17
+Intersection type,3-leg signalised,6
+Intersection type,4-leg signalised with protected turn lane,9
+Intersection type,3-leg signalised with protected turn lane,5
+Intersection type,Roundabout,2
+Intersection type,Railway Crossing - passive,13
+Intersection type,Merge lane,1
+Intersection type,Railway Crossing - active,14
+Intersection type,Median crossing point - informal,15
+Intersection type,Median crossing point - formal,16
+Intersection type,,12
+Intersection quality,Poor,2
+Intersection quality,Adequate,1
+Intersection quality,Not applicable,3
+Intersection channelization,Present,2
+Intersection channelization,Not present,1
+Property access points,Commercial access ≥1,1
+Property access points,Residential access ≥3,2
+Property access points,Residential access <3,3
+Property access points,,4
+Intersecting road volume,"≥15,000 vehicles",1
+Intersecting road volume,"10,000 to 15,000 vehicles",2
+Intersecting road volume,"5,000 to 10,000 vehicles",3
+Intersecting road volume,"1,000 to 5,000 vehicles",4
+Intersecting road volume,"100 to 1,000 vehicles",5
+Intersecting road volume,1 to 100 vehicles,6
+Intersecting road volume,Not applicable,7
+Land use - driver-side,Educational,6
+Land use - driver-side,Commercial,4
+Land use - driver-side,Industrial and manufacturing,7
+Land use - driver-side,Residential,3
+Land use - driver-side,Farming and agricultural,2
+Land use - driver-side,Undeveloped areas,1
+Land use - driver-side,Not Recorded,5
+Land use passenger-side,Educational,6
+Land use passenger-side,Commercial,4
+Land use passenger-side,Industrial and manufacturing,7
+Land use passenger-side,Residential,3
+Land use passenger-side,Farming and agricultural,2
+Land use passenger-side,Undeveloped areas,1
+Land use passenger-side,Not Recorded,5
+Area type,Urban,2
+Area type,Rural,1
+Pedestrian crossing facilities - inspected road,No facility,7
+Pedestrian crossing facilities - inspected road,Refuge only,6
+Pedestrian crossing facilities - inspected road,Marked crossing only,5
+Pedestrian crossing facilities - inspected road,Raised unmarked crossing,17
+Pedestrian crossing facilities - inspected road,Marked crossing with refuge,4
+Pedestrian crossing facilities - inspected road,Raised unmarked crossing with refuge,16
+Pedestrian crossing facilities - inspected road,Raised marked crossing,15
+Pedestrian crossing facilities - inspected road,Raised marked crossing with refuge,14
+Pedestrian crossing facilities - inspected road,Signalised crossing,3
+Pedestrian crossing facilities - inspected road,Signalised crossing with refuge,2
+Pedestrian crossing facilities - inspected road,Grade separated facility,1
+Pedestrian crossing facilities quality,Poor,2
+Pedestrian crossing facilities quality,Adequate,1
+Pedestrian crossing facilities quality,Not applicable,3
+Pedestrian crossing facilities - side road,No facility,7
+Pedestrian crossing facilities - side road,Refuge only,6
+Pedestrian crossing facilities - side road,Marked crossing only,5
+Pedestrian crossing facilities - side road,Raised unmarked crossing,17
+Pedestrian crossing facilities - side road,Marked crossing with refuge,4
+Pedestrian crossing facilities - side road,Raised unmarked crossing with refuge,16
+Pedestrian crossing facilities - side road,Raised marked crossing,15
+Pedestrian crossing facilities - side road,Raised marked crossing with refuge,14
+Pedestrian crossing facilities - side road,Signalised crossing,3
+Pedestrian crossing facilities - side road,Signalised crossing with refuge,2
+Pedestrian crossing facilities - side road,Grade separated facility,1
+Pedestrian fencing,Present,2
+Pedestrian fencing,Not present,1
+Sidewalk-driver-side,,5
+Sidewalk-driver-side,Informal path Om to <1m,7
+Sidewalk-driver-side,Informal path ≥1m,6
+Sidewalk-driver-side,Sidewalk Om to <1m from road,4
+Sidewalk-driver-side,Sidewalk 1m to <3m from road,3
+Sidewalk-driver-side,Sidewalk ≥3m from road,2
+Sidewalk-driver-side,Sidewalk with barrier,1
+Sidewalk - passenger-side,,5
+Sidewalk - passenger-side,Informal path Om to <1m,7
+Sidewalk - passenger-side,Informal path ≥1m,6
+Sidewalk - passenger-side,Sidewalk Om to <1m from road,4
+Sidewalk - passenger-side,Sidewalk 1m to <3m from road,3
+Sidewalk - passenger-side,Sidewalk ≥3 from road,2
+Sidewalk - passenger-side,Sidewalk with barrier,1
+Facilities for motorcycles,,6
+Facilities for motorcycles,Motorcycle lane on roadway,5
+Facilities for motorcycles,Motorcycle path - one way,2
+Facilities for motorcycles,Motorcycle path - two way,4
+Facilities for motorcycles,Motorcycle path one way with barrier,3
+Facilities for motorcycles,Motorcycle path - two way with barrier,1
+Facilities for bicycles,,4
+Facilities for bicycles,Signed shared roadway,6
+Facilities for bicycles,Extra wide outside ≥4.2m,5
+Facilities for bicycles,Dedicated bicycle lane on roadway,3
+Facilities for bicycles,Shared use path,7
+Facilities for bicycles,Segregated bicycle path,2
+Facilities for bicycles,Segregated bicycle path with barrier,1
+School zone warning,No school zone warning (school present),3
+School zone warning,School zone static signs or road markings,2
+School zone warning,School zone flashing beacons,1
+School zone warning,Not applicable (no school at the location),4
+School zone crossing supervisor,School zone crossing supervisor not present,2
+School zone crossing supervisor,School zone crossing supervisor present at school start and finish times,1
+School zone crossing supervisor,Not applicable (no school at the location),3
