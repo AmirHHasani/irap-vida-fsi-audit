@@ -26,7 +26,7 @@ stage2/
   stage2_create_analysis_dataset.py
   stage2_hierarchical_cf.py
   stage2_cf_prescription_generation.py
-  stage2_treatment_codebook.py
+  stage2_treatment_codebook.py (iRAP Codings)
 README.md
 requirements-stage1.txt
 requirements-stage2.txt
@@ -57,4 +57,4 @@ Run the Stage 2 entry point (see `stage2/stage2_cf_prescription_generation.py` o
 
 ## Citation
 
-If you use this code, cite the associated paper or report.
+If this repo was of any help, please support us & cite our work, Thank you.
