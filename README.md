@@ -26,7 +26,7 @@ stage2/
   stage2_create_analysis_dataset.py
   stage2_hierarchical_cf.py
   stage2_cf_prescription_generation.py
-  stage2_treatment_codebook.py (Good for mapping iRAP Codings for models)
+  stage2_treatment_codebook.py (For mapping iRAP Codings for models)
 README.md
 requirements-stage1.txt
 requirements-stage2.txt
