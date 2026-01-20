@@ -28,7 +28,7 @@ stage2/
   stage2_cf_prescription_generation.py
   stage2_treatment_codebook.py
 README.md
-requirements-stage1.txt
+requirements-stage1.txt (Minimum requirements)
 requirements-stage2.txt
 flowchart.png
 ```
