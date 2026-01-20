@@ -67,7 +67,3 @@ The source datasets used in this project are provided by the International Road 
 ## Citation
 
 If you use this repository or methods from it, please cite the corresponding work.
-
-## Contact
-
-For questions or contributions, open an issue or contact the authors via the repository.
