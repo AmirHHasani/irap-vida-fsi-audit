@@ -1,15 +1,15 @@
-# A Two-Stage Machine Learning and Causal Forest Framework for Modelled Road Safety
+# A Two‑Stage Framework for Modelled Road Safety
 
 <p align="center">
   <img src="flowchart.png" alt="Two-stage workflow flowchart" width="500" height="450" />
 </p>
 
-This repository contains the core code for a two‑stage pipeline:
+This repository implements a two‑stage analysis pipeline for modelled road safety:
 
-- **Stage 1**: predictive modeling and risk estimation
-- **Stage 2**: causal analysis and treatment effect estimation
+- **Stage 1 — Prediction:** predictive modelling and risk estimation (feature engineering, model training, evaluation).
+- **Stage 2 — Causal analysis:** creation of analysis datasets, causal forest estimation, and prescription generation.
 
-## Repository Structure
+## Repository structure
 
 ```
 stage1/
@@ -33,28 +33,43 @@ requirements-stage2.txt
 flowchart.png
 ```
 
-## Requirements
+## Quick start
 
-Two Python environments are used:
+1. Create and activate a Python environment for the stage you want to run.
+2. Install dependencies:
 
-- **Stage 1**: Dependencies listed in `requirements-stage1.txt`
-- **Stage 2**: Dependencies listed in `requirements-stage2.txt`
+```bash
+# Stage 1
+pip install -r requirements-stage1.txt
 
-Install dependencies with:
+# Stage 2
+pip install -r requirements-stage2.txt
+```
 
-- Stage 1: `pip install -r requirements-stage1.txt`
-- Stage 2: `pip install -r requirements-stage2.txt`
+3. Configure input paths and parameters in `stage1/stage1_config.py` or `stage2/stage2_config.py`.
+4. Run the appropriate entry point:
 
-## Usage
+```bash
+python stage1/stage1_main.py    # run predictive modelling pipeline
+python stage2/stage2_cf_prescription_generation.py    # run causal prescription generation
+```
 
-### Stage 1
+## Usage notes
 
-Run the Stage 1 entry point (see `stage1/stage1_main.py`) after configuring inputs in `stage1/stage1_config.py`.
+- Edit the config files (`stage1/stage1_config.py`, `stage2/stage2_config.py`) to point to input data and set runtime options.
+- Intermediate files and outputs are written to the locations defined in the config files; check those paths before running long jobs.
+- For hyperparameter tuning traces and results, see `input_data/stage1_tuning/` subfolders.
 
-### Stage 2
+## Data Availability
 
-Run the Stage 2 entry point (see `stage2/stage2_cf_prescription_generation.py` or other scripts) after setting parameters in `stage2/stage2_config.py`.
+The source datasets used in this project are provided by the International Road Assessment Programme (iRAP) and are available from https://www.irap.org/. Access to original/raw iRAP datasets is subject to iRAP's data‑sharing policy and requires their permission. To request access, contact iRAP via their website and include your affiliation, intended use, and whether you require raw or processed data.
+
+Where iRAP has granted permission, aggregated or processed datasets produced for this study are included in this repository. When using iRAP data please cite and acknowledge iRAP (for example: International Road Assessment Programme (iRAP), [dataset name], accessed via https://www.irap.org/) and follow any licensing or acknowledgement guidance provided by iRAP.
 
 ## Citation
 
-If this repo was of any help, please support us & cite our work, Thank you.
+If you use this repository or methods from it, please cite the corresponding work.
+
+## Contact
+
+For questions or contributions, open an issue or contact the authors via the repository.
