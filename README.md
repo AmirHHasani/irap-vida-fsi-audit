@@ -62,6 +62,7 @@ python stage2/stage2_cf_prescription_generation.py    # run causal prescription 
 ## Data Availability
 
 The source datasets used in this project are provided by the International Road Assessment Programme (iRAP) and are available from https://vida.irap.org/en-gb/home.
+With the metadata provided in the paper, you can find and request the datasets.
 
 ## Citation
 
