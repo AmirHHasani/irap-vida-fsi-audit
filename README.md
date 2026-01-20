@@ -58,7 +58,6 @@ python stage2/stage2_cf_prescription_generation.py    # run causal prescription 
 
 - Edit the config files (`stage1/stage1_config.py`, `stage2/stage2_config.py`) to point to input data and set runtime options.
 - Intermediate files and outputs are written to the locations defined in the config files; check those paths before running long jobs.
-- For hyperparameter tuning traces and results, see `input_data/stage1_tuning/` subfolders.
 
 ## Data Availability
 
