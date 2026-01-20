@@ -7,7 +7,7 @@
 This repository implements a two‑stage analysis pipeline for modelled road safety:
 
 - **Stage 1 — Prediction:** predictive modelling and risk estimation (feature engineering, model training, evaluation).
-- **Stage 2 — Causal analysis:** causal forest estimation, and prescription generation.
+- **Stage 2 — Causal association analysis:** causal forest estimation, and prescription generation.
 
 ## Repository structure
 
