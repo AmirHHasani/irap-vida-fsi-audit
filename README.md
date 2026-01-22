@@ -51,7 +51,7 @@ pip install -r requirements-stage2.txt
 
 ```bash
 python stage1/stage1_main.py    # run predictive modelling pipeline
-python stage2/stage2_cf_prescription_generation.py    # run causal prescription generation
+python stage2/stage2_hierarchical_cf.py and then stage2_cf_prescription_generation.py   # run causal prescription generation
 ```
 
 ## Usage notes
