@@ -112,9 +112,7 @@ These files define:
 
 This repository does **not** redistribute the underlying iRAP ViDA segment exports used in the study.
 
-The raw and processed survey data are subject to iRAP licensing and access conditions. See [DATA_ACCESS.md](DATA_ACCESS.md) for the expected local input files and the data-access note.
-
-Small support metadata used by the codebase, such as treatment/code mappings, may be included where appropriate.
+The raw and processed survey data are subject to iRAP licensing and access conditions. Full end-to-end reruns therefore require an authorized local copy of the input files referenced by `stage1/stage1_config.py` and `stage2/stage2_config.py`. Small support metadata used by the codebase, such as treatment/code mappings, may be included where appropriate.
 
 ## Interpretation note
 
