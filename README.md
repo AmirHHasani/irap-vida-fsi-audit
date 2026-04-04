@@ -56,9 +56,7 @@ reporters/reporters/
 ```
 
 Supporting files at the repository root include:
-- `requirements-stage1.txt`
 - `requirements-stage1.min.txt`
-- `requirements-stage2.txt`
 - `requirements-stage2.min.txt`
 - `audit_compute.py`
 - `audit_srip.py`
