@@ -27,6 +27,18 @@ combine_data/
 catboost_info/
 stage1_outputs/
 stage2_outputs/
+stage1/catboost_info/
+stage1/stage1_outputs/
+stage2/stage2_outputs/
+before publish paper/
+the_stat_paper/
+outputs for publish/
+past_stage1_results/
+comments_v*
+language edits
+*.zip
+stage2/codes_filled.xlsx
+REPO_CURATION_NOTES.md
 
 # Logs
 *.log

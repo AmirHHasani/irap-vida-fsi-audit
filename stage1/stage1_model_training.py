@@ -77,12 +77,13 @@ def train_and_evaluate_model(X, y, model_type, split_strategy, target_col, road_
     model = None
     if model_type == 'CatBoost':
         model = ctb.CatBoostRegressor(
-            iterations=1300,
-            learning_rate=0.005356897883541814,
-            depth=12,
-            l2_leaf_reg=8.50389566333857,
-            min_data_in_leaf=40,
-            subsample=0.8854354560884194,
+            # Tuned hyperparameters from Optuna (2025-10-16 run, R²=0.699)
+            iterations=2700,
+            learning_rate=0.057180837980277475,
+            depth=10,
+            l2_leaf_reg=1.910118305911902,
+            min_data_in_leaf=30,
+            subsample=0.5770241989636643,
             loss_function='RMSE',
             random_seed=random_state,
             verbose=0,
@@ -92,30 +93,32 @@ def train_and_evaluate_model(X, y, model_type, split_strategy, target_col, road_
 
     elif model_type == 'LightGBM':
         model = lgb.LGBMRegressor(
-            n_estimators=1000,
-            learning_rate=0.006763265769840934,
-            num_leaves=121,
-            max_depth=6,
-            subsample=0.6243614677548276,
-            colsample_bytree=0.9556681223225084,
-            reg_alpha=1.2164626167681631,
-            reg_lambda=6.5388136237946295,
-            min_child_samples=44,
+            # Tuned hyperparameters from Optuna (2025-10-16 run, R²=0.689)
+            n_estimators=1600,
+            learning_rate=0.013102532483752814,
+            num_leaves=38,
+            max_depth=15,
+            subsample=0.808191937618305,
+            colsample_bytree=0.8161071000274498,
+            reg_alpha=0.4844922766155489,
+            reg_lambda=9.632501050596495,
+            min_child_samples=28,
             random_state=random_state,
             verbosity=-1
         )
 
     elif model_type == 'XGBoost':
         model = xgb.XGBRegressor(
-            n_estimators=900,
-            learning_rate=0.012060726882575375,
-            max_depth=6,
-            subsample=0.7063562537526376,
-            colsample_bytree=0.9143977696931044,
-            reg_alpha=0.48528946879027807,
-            reg_lambda=2.6147133081671745,
-            min_child_weight=1,
-            gamma=0.5401709582058462,
+            # Tuned hyperparameters from Optuna (2025-10-16 run, R²=0.647)
+            n_estimators=2900,
+            learning_rate=0.031267285253120426,
+            max_depth=8,
+            subsample=0.6946000930203216,
+            colsample_bytree=0.7944888223337778,
+            reg_alpha=1.5556540652500264,
+            reg_lambda=3.9075969867624596,
+            min_child_weight=3,
+            gamma=0.0009420866279373377,
             objective='reg:squarederror',
             random_state=random_state,
             enable_categorical=True
@@ -221,13 +224,13 @@ def train_final_model(X, y, model_type, random_state, cat_features=None):
             random_state=random_state, 
             verbose=0, 
             cat_features=cat_features,
-            # Tuned hyperparameters from Optuna (2025-11-21 run)
-            iterations=1300,
-            learning_rate=0.005356897883541814,
-            depth=12,
-            l2_leaf_reg=8.50389566333857,
-            min_data_in_leaf=40,
-            subsample=0.8854354560884194,
+            # Tuned hyperparameters from Optuna (2025-10-16 run, R²=0.699)
+            iterations=2700,
+            learning_rate=0.057180837980277475,
+            depth=10,
+            l2_leaf_reg=1.910118305911902,
+            min_data_in_leaf=30,
+            subsample=0.5770241989636643,
             bootstrap_type='Bernoulli'
         )
         if cfg.USE_GPU and cfg.GPU_ENABLE_CATBOOST:
@@ -239,16 +242,16 @@ def train_final_model(X, y, model_type, random_state, cat_features=None):
     elif model_type == 'LightGBM':
         params = dict(
             random_state=random_state,
-            # Tuned hyperparameters from Optuna (2025-11-21 run)
-            n_estimators=1000,
-            learning_rate=0.006763265769840934,
-            num_leaves=121,
-            max_depth=6,
-            subsample=0.6243614677548276,
-            colsample_bytree=0.9556681223225084,
-            reg_alpha=1.2164626167681631,
-            reg_lambda=6.5388136237946295,
-            min_child_samples=44
+            # Tuned hyperparameters from Optuna (2025-10-16 run, R²=0.689)
+            n_estimators=1600,
+            learning_rate=0.013102532483752814,
+            num_leaves=38,
+            max_depth=15,
+            subsample=0.808191937618305,
+            colsample_bytree=0.8161071000274498,
+            reg_alpha=0.4844922766155489,
+            reg_lambda=9.632501050596495,
+            min_child_samples=28
         )
         if cfg.USE_GPU and cfg.GPU_ENABLE_LIGHTGBM:
             params.update(device_type='gpu')
@@ -261,16 +264,16 @@ def train_final_model(X, y, model_type, random_state, cat_features=None):
             random_state=random_state, 
             enable_categorical=False, 
             verbosity=0,
-            # Tuned hyperparameters from Optuna (2025-11-22 run)
-            n_estimators=900,
-            learning_rate=0.012060726882575375,
-            max_depth=6,
-            subsample=0.7063562537526376,
-            colsample_bytree=0.9143977696931044,
-            reg_alpha=0.48528946879027807,
-            reg_lambda=2.6147133081671745,
-            min_child_weight=1,
-            gamma=0.5401709582058462
+            # Tuned hyperparameters from Optuna (2025-10-16 run, R²=0.647)
+            n_estimators=2900,
+            learning_rate=0.031267285253120426,
+            max_depth=8,
+            subsample=0.6946000930203216,
+            colsample_bytree=0.7944888223337778,
+            reg_alpha=1.5556540652500264,
+            reg_lambda=3.9075969867624596,
+            min_child_weight=3,
+            gamma=0.0009420866279373377
         )
         if cfg.USE_GPU and cfg.GPU_ENABLE_XGBOOST:
             params.update(tree_method='gpu_hist', predictor='gpu_predictor', gpu_id=cfg.GPU_DEVICE_ID)
@@ -291,13 +294,13 @@ def _get_model_instance_impl(model_type, random_state, cat_features):
             random_state=random_state, 
             verbose=0, 
             cat_features=cat_features,
-            # Tuned hyperparameters from Optuna
-            iterations=1300,
-            learning_rate=0.005356897883541814,
-            depth=12,
-            l2_leaf_reg=8.50389566333857,
-            min_data_in_leaf=40,
-            subsample=0.8854354560884194,
+            # Tuned hyperparameters from Optuna (2025-10-16 run, R²=0.699)
+            iterations=2700,
+            learning_rate=0.057180837980277475,
+            depth=10,
+            l2_leaf_reg=1.910118305911902,
+            min_data_in_leaf=30,
+            subsample=0.5770241989636643,
             bootstrap_type='Bernoulli'
         )
         if cfg.USE_GPU and cfg.GPU_ENABLE_CATBOOST:
@@ -309,16 +312,16 @@ def _get_model_instance_impl(model_type, random_state, cat_features):
     elif model_type == 'LightGBM':
         params = dict(
             random_state=random_state,
-            # Tuned hyperparameters from Optuna
-            n_estimators=1000,
-            learning_rate=0.006763265769840934,
-            num_leaves=121,
-            max_depth=6,
-            subsample=0.6243614677548276,
-            colsample_bytree=0.9556681223225084,
-            reg_alpha=1.2164626167681631,
-            reg_lambda=6.5388136237946295,
-            min_child_samples=44
+            # Tuned hyperparameters from Optuna (2025-10-16 run, R²=0.689)
+            n_estimators=1600,
+            learning_rate=0.013102532483752814,
+            num_leaves=38,
+            max_depth=15,
+            subsample=0.808191937618305,
+            colsample_bytree=0.8161071000274498,
+            reg_alpha=0.4844922766155489,
+            reg_lambda=9.632501050596495,
+            min_child_samples=28
         )
         if cfg.USE_GPU and cfg.GPU_ENABLE_LIGHTGBM:
             params.update(device_type='gpu')
@@ -331,16 +334,16 @@ def _get_model_instance_impl(model_type, random_state, cat_features):
             random_state=random_state, 
             enable_categorical=False, 
             verbosity=0,
-            # Tuned hyperparameters from Optuna
-            n_estimators=900,
-            learning_rate=0.012060726882575375,
-            max_depth=6,
-            subsample=0.7063562537526376,
-            colsample_bytree=0.9143977696931044,
-            reg_alpha=0.48528946879027807,
-            reg_lambda=2.6147133081671745,
-            min_child_weight=1,
-            gamma=0.5401709582058462
+            # Tuned hyperparameters from Optuna (2025-10-16 run, R²=0.647)
+            n_estimators=2900,
+            learning_rate=0.031267285253120426,
+            max_depth=8,
+            subsample=0.6946000930203216,
+            colsample_bytree=0.7944888223337778,
+            reg_alpha=1.5556540652500264,
+            reg_lambda=3.9075969867624596,
+            min_child_weight=3,
+            gamma=0.0009420866279373377
         )
         if cfg.USE_GPU and cfg.GPU_ENABLE_XGBOOST:
             params.update(tree_method='gpu_hist', predictor='gpu_predictor', gpu_id=cfg.GPU_DEVICE_ID)

@@ -148,37 +148,73 @@ OUTCOME_COL_ACTUAL = 'actual_risk'  # Ground truth from Stage 1 OOF predictions
 OUTCOME_COL_PREDICTED = 'predicted_risk'  # Model predictions
 
 # ============================================================================
-# Paths - VALIDATED OCTOBER 7, 2025
+# Paths
 # ============================================================================
 
 # Stage 1 outputs (OOF predictions - 147,466 segments)
-# UPDATED: October 25, 2025 - Latest Stage 1 run
-STAGE1_OUTPUT_DIR = Path(__file__).parent.parent / 'stage1_outputs'
+STAGE1_OUTPUT_DIR = Path(__file__).parent.parent / 'stage1' / 'stage1_outputs'
 LEGACY_STAGE1_OUTPUT_DIR = STAGE1_OUTPUT_DIR
 STAGE1_BASE_DIR = STAGE1_OUTPUT_DIR
-STAGE1_RUN_NAME = '2025-11-29_09-58-47_BY_ROAD'  #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-STAGE1_RUN_DIR = STAGE1_BASE_DIR / STAGE1_RUN_NAME
+
+# Manual override: set a specific run name here. Leave empty ('') to
+# auto-detect the most recent Stage 1 run directory at import time.
+STAGE1_RUN_NAME = ''
+
+
+def _resolve_stage1_run() -> Path:
+    """Return the Stage 1 run directory.
+
+    Priority:
+      1. ``STAGE1_RUN_NAME`` (manual override) -- if non-empty and the dir exists.
+      2. Most recently modified timestamped sub-directory in ``STAGE1_BASE_DIR``.
+      3. Falls back to ``STAGE1_BASE_DIR`` itself (will likely fail downstream,
+         but lets validation report a clear error).
+    """
+    # --- manual override ---
+    if STAGE1_RUN_NAME:
+        candidate = STAGE1_BASE_DIR / STAGE1_RUN_NAME
+        if candidate.is_dir():
+            return candidate
+        print(f"[WARN] Manual STAGE1_RUN_NAME='{STAGE1_RUN_NAME}' not found; "
+              f"falling back to auto-detection.")
+
+    # --- auto-detect latest ---
+    if STAGE1_BASE_DIR.exists():
+        run_dirs = sorted(
+            [d for d in STAGE1_BASE_DIR.iterdir()
+             if d.is_dir() and not d.name.startswith('.')],
+            key=lambda d: d.stat().st_mtime,
+            reverse=True,
+        )
+        if run_dirs:
+            print(f"[INFO] Auto-detected Stage 1 run: {run_dirs[0].name}")
+            return run_dirs[0]
+
+    # --- fallback ---
+    print("[WARN] No Stage 1 run directories found; downstream reads will fail.")
+    return STAGE1_BASE_DIR
+
+
+STAGE1_RUN_DIR = _resolve_stage1_run()
+# Expose the resolved name so downstream code can reference it
+STAGE1_RUN_NAME_RESOLVED = STAGE1_RUN_DIR.name
 
 # Key Stage 1 files
 STAGE1_OOF_PREDICTIONS = STAGE1_RUN_DIR / 'fold_results' / 'oof_predictions_segments.csv'
-STAGE1_HOTSPOT_OVERLAY = STAGE1_RUN_DIR / 'fold_results' / 'hotspot_prediction_overlay.csv'  # Segment-level (556 hotspots)
-STAGE1_HOTSPOT_PROFILES = STAGE1_RUN_DIR / 'fold_results' / 'all_road_high_risk_profiles.csv'  # Road-level SHAP (132 roads)
+STAGE1_HOTSPOT_OVERLAY = STAGE1_RUN_DIR / 'fold_results' / 'hotspot_prediction_overlay.csv'
+STAGE1_HOTSPOT_PROFILES = STAGE1_RUN_DIR / 'fold_results' / 'all_road_high_risk_profiles.csv'
 STAGE1_METRICS = STAGE1_RUN_DIR / 'fold_results' / 'per_road_hotspot_metrics.csv'
 
-# Phase 2 data directory (feature data - 147,466 segments × 115 columns)
+# Phase 2 data directory (feature data - 147,466 segments x 115 columns)
 INPUT_DATA_DIR = Path(__file__).parent.parent / 'input_data'
 PHASE2_DATA_DIR = INPUT_DATA_DIR
 SEGMENTS_DATA_CSV = INPUT_DATA_DIR / 'segments_unique.csv'
 
-# Stage 2 outputs
-# Organized by Stage 1 run name for traceability
+# Stage 2 outputs -- organised by Stage 1 run for traceability
 OUTPUT_DIR = Path(__file__).parent / 'stage2_outputs'
-if STAGE1_RUN_NAME:
-    # Use shortened version of run name (date only)
-    run_date = STAGE1_RUN_NAME.split('_')[0] if '_' in STAGE1_RUN_NAME else 'default'
-    OUTPUT_DIR = OUTPUT_DIR / f"from_stage1_{run_date}"
-else:
-    OUTPUT_DIR = OUTPUT_DIR / "from_stage1_default"
+_run_label = STAGE1_RUN_NAME_RESOLVED if STAGE1_RUN_DIR != STAGE1_BASE_DIR else 'default'
+_run_date = _run_label.split('_')[0] if '_' in _run_label else _run_label
+OUTPUT_DIR = OUTPUT_DIR / f"from_stage1_{_run_date}"
 
 # Output subdirectories
 OUTPUT_SUBDIRS = {
@@ -240,13 +276,15 @@ EVALUE_THRESHOLDS = {
 # Budget optimization
 DEFAULT_BUDGET = None  # Will require user input
 
-# Cost estimates (€ per unit) - PLACEHOLDER, requires user input
+# Cost estimates (EUR per unit) - PLACEHOLDER, requires user input
+# Keys must match the canonical treatment names in ALL_TREATMENTS.
 TREATMENT_COSTS = {
-    'speed_limit': None,      # € per sign per km
-    'street_lighting': None,  # € per pole per km
-    'sidewalks': None,        # € per m² or per km
-    'crossings': None,        # € per crossing
-    'rumble_strips': None     # € per km
+    'Centreline rumble strips': None,
+    'Delineation': None,
+    'Street lighting': None,
+    'Paved shoulder - driver-side': None,
+    'Paved shoulder - passenger-side': None,
+    'Road condition': None,
 }
 
 # Road selection criteria
@@ -266,32 +304,35 @@ FIGURE_DPI = 300
 # Plot style
 PLOT_STYLE = 'seaborn-v0_8-darkgrid'
 
-# Color palette for countries
-COUNTRY_COLORS = {
-    'BiH': '#1f77b4',
-    'Serbia': '#ff7f0e',
-    'Macedonia': '#2ca02c',
-    # Add more as needed
+# Color palette for datasets / reporting groups
+# Keys are Dataset IDs (no country names to comply with anonymisation).
+DATASET_COLORS = {
+    '980': '#1f77b4',
+    '1240': '#ff7f0e',
+    '1242': '#2ca02c',
+    '1246': '#d62728',
+    '1247': '#9467bd',
+    '1398': '#8c564b',
+    '1400': '#e377c2',
+    '1424': '#7f7f7f',
+    '1425': '#bcbd22',
+    '1426': '#17becf',
+    '12008': '#aec7e8',
+    '12983': '#ffbb78',
 }
 
 # ============================================================================
 # Feature Name Mapping (Stage 1 sanitization)
 # ============================================================================
 
-# Stage 1 uses sanitized names (lowercase, underscores)
-# This mapping helps reconnect to original feature names if needed
+# Display-friendly names for the 6 validated treatments
 FEATURE_DISPLAY_NAMES = {
-    'speed_limit': 'Speed Limit',
-    'street_lighting': 'Street Lighting',
-    'sidewalks': 'Sidewalks',
-    'crossings': 'Pedestrian Crossings',
-    'rumble_strips': 'Rumble Strips',
-    'aadt': 'AADT (Traffic Volume)',
-    'area_type': 'Area Type',
-    'land_use': 'Land Use',
-    'curvature': 'Curvature',
-    'grade': 'Grade',
-    'intersection_type': 'Intersection Type'
+    'Centreline rumble strips': 'Centreline Rumble Strips',
+    'Delineation': 'Delineation',
+    'Street lighting': 'Street Lighting',
+    'Paved shoulder - driver-side': 'Paved Shoulder (Driver)',
+    'Paved shoulder - passenger-side': 'Paved Shoulder (Passenger)',
+    'Road condition': 'Road Condition',
 }
 
 # ============================================================================
@@ -314,74 +355,65 @@ def create_output_dirs():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     for subdir in OUTPUT_SUBDIRS.values():
         subdir.mkdir(parents=True, exist_ok=True)
-    print(f"✓ Created output directories in {OUTPUT_DIR}")
+    print(f"[OK] Created output directories in {OUTPUT_DIR}")
 
 
 def get_latest_stage1_run():
-    """
-    Auto-detect the most recent Stage 1 run directory.
-    Returns Path object or None if not found.
+    """Auto-detect the most recent Stage 1 run directory.
+
+    Returns Path or None.  Delegates to ``_resolve_stage1_run`` with the
+    manual override intentionally bypassed.
     """
     if not STAGE1_BASE_DIR.exists():
         return None
-    
-    # Look for timestamped run directories or version folders
-    run_dirs = [d for d in STAGE1_BASE_DIR.iterdir() 
-                if d.is_dir() and not d.name.startswith('.')]
-    if not run_dirs:
-        return None
-    
-    # Sort by modification time (most recent first)
-    run_dirs.sort(key=lambda d: d.stat().st_mtime, reverse=True)
-    return run_dirs[0]
+    run_dirs = sorted(
+        [d for d in STAGE1_BASE_DIR.iterdir()
+         if d.is_dir() and not d.name.startswith('.')],
+        key=lambda d: d.stat().st_mtime,
+        reverse=True,
+    )
+    return run_dirs[0] if run_dirs else None
 
 
 def set_stage1_version(version: str = None, custom_path: str = None):
-    """
-    Set Stage 1 version/run to use for analysis.
-    
+    """Switch Stage 1 run at runtime and update all dependent paths.
+
     Parameters
     ----------
     version : str, optional
-        Version name (e.g., 'v1_xgboost', 'v2_tuned')
+        Run-directory name inside ``STAGE1_BASE_DIR``.
     custom_path : str, optional
-        Full custom path to Stage 1 outputs
-    
-    Returns
-    -------
-    Path
-        The Stage 1 run directory to use
+        Full path to an arbitrary Stage 1 output directory.
     """
-    global STAGE1_RUN_DIR, OUTPUT_DIR, STAGE1_VERSION
-    
+    global STAGE1_RUN_DIR, STAGE1_RUN_NAME_RESOLVED, OUTPUT_DIR
+    global STAGE1_OOF_PREDICTIONS, STAGE1_HOTSPOT_OVERLAY
+    global STAGE1_HOTSPOT_PROFILES, STAGE1_METRICS
+
     if custom_path:
         STAGE1_RUN_DIR = Path(custom_path)
-        STAGE1_VERSION = Path(custom_path).name
     elif version:
         STAGE1_RUN_DIR = STAGE1_BASE_DIR / version
-        STAGE1_VERSION = version
     else:
-        # Auto-detect latest
         latest = get_latest_stage1_run()
-        if latest:
-            STAGE1_RUN_DIR = latest
-            STAGE1_VERSION = latest.name
-        else:
-            STAGE1_RUN_DIR = STAGE1_BASE_DIR
-            STAGE1_VERSION = "default"
-    
-    # Update output directory to track Stage 1 version
-    OUTPUT_DIR = Path(__file__).parent / 'stage2_outputs' / f"from_stage1_{STAGE1_VERSION}"
-    
-    # Update all output subdirectories
-    OUTPUT_SUBDIRS['ate_results'] = OUTPUT_DIR / 'ate_results'
-    OUTPUT_SUBDIRS['dose_response'] = OUTPUT_DIR / 'dose_response'
-    OUTPUT_SUBDIRS['heterogeneity'] = OUTPUT_DIR / 'heterogeneity'
-    OUTPUT_SUBDIRS['diagnostics'] = OUTPUT_DIR / 'diagnostics'
-    OUTPUT_SUBDIRS['prescriptions'] = OUTPUT_DIR / 'prescriptions'
-    OUTPUT_SUBDIRS['reports'] = OUTPUT_DIR / 'reports'
-    OUTPUT_SUBDIRS['data'] = OUTPUT_DIR / 'data'
-    
+        STAGE1_RUN_DIR = latest if latest else STAGE1_BASE_DIR
+
+    STAGE1_RUN_NAME_RESOLVED = STAGE1_RUN_DIR.name
+
+    # Refresh file paths
+    STAGE1_OOF_PREDICTIONS = STAGE1_RUN_DIR / 'fold_results' / 'oof_predictions_segments.csv'
+    STAGE1_HOTSPOT_OVERLAY = STAGE1_RUN_DIR / 'fold_results' / 'hotspot_prediction_overlay.csv'
+    STAGE1_HOTSPOT_PROFILES = STAGE1_RUN_DIR / 'fold_results' / 'all_road_high_risk_profiles.csv'
+    STAGE1_METRICS = STAGE1_RUN_DIR / 'fold_results' / 'per_road_hotspot_metrics.csv'
+
+    # Refresh output directory
+    _label = STAGE1_RUN_NAME_RESOLVED
+    _date = _label.split('_')[0] if '_' in _label else _label
+    OUTPUT_DIR = Path(__file__).parent / 'stage2_outputs' / f"from_stage1_{_date}"
+
+    # Refresh subdirectories
+    for key in OUTPUT_SUBDIRS:
+        OUTPUT_SUBDIRS[key] = OUTPUT_DIR / key
+
     return STAGE1_RUN_DIR
 
 
@@ -391,27 +423,31 @@ def validate_config():
     
     # Check treatment costs are set (for prescription)
     if any(cost is None for cost in TREATMENT_COSTS.values()):
-        issues.append("⚠️  Treatment costs not set (required for prescription module)")
+        issues.append("[WARN] Treatment costs not set (required for prescription module)")
     
     # Check Stage 1 directory exists
-    if not STAGE1_BASE_DIR.exists():
-        issues.append(f"⚠️  Stage 1 base directory not found: {STAGE1_BASE_DIR}")
+    if not STAGE1_RUN_DIR.exists():
+        issues.append(f"[ERR] Stage 1 run directory not found: {STAGE1_RUN_DIR}")
+    elif not STAGE1_OOF_PREDICTIONS.exists():
+        issues.append(f"[WARN] Stage 1 OOF predictions not found: {STAGE1_OOF_PREDICTIONS}")
     
     # Check confidence level is valid
     if not 0 < CONFIDENCE_LEVEL < 1:
-        issues.append(f"❌ Invalid confidence level: {CONFIDENCE_LEVEL}")
+        issues.append(f"[ERR] Invalid confidence level: {CONFIDENCE_LEVEL}")
     
     if issues:
         print("\n".join(issues))
     else:
-        print("✓ Configuration validated successfully")
+        print("[OK] Configuration validated successfully")
     
     return len(issues) == 0
 
 
 if __name__ == '__main__':
-    print("Stage 2 Configuration - USER APPROVED")
+    print("Stage 2 Configuration")
     print("=" * 60)
+    print(f"Stage 1 run (resolved): {STAGE1_RUN_NAME_RESOLVED}")
+    print(f"  Manual override:      '{STAGE1_RUN_NAME}' (empty = auto-detect)")
     print(f"Binary Treatments ({len(BINARY_TREATMENTS)}): {BINARY_TREATMENTS}")
     print(f"Ordinal Treatments ({len(ORDINAL_TREATMENTS)}): {ORDINAL_TREATMENTS}")
     print(f"Total Viable Treatments: {len(ALL_TREATMENTS)}")
@@ -427,7 +463,7 @@ if __name__ == '__main__':
     create_output_dirs()
     
     if STAGE1_OOF_PREDICTIONS.exists():
-        print(f"\n✓ Stage 1 OOF predictions found")
+        print(f"\n[OK] Stage 1 OOF predictions found")
     else:
-        print(f"\n⚠️  Stage 1 OOF predictions not found")
-
+        print(f"\n[WARN] Stage 1 OOF predictions not found at:")
+        print(f"   {STAGE1_OOF_PREDICTIONS}")

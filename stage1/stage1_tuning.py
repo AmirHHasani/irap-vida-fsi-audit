@@ -433,18 +433,18 @@ class OptunaModelTuner:
         best_params_path = self.output_dir / 'best_params.json'
         with open(best_params_path, 'w') as f:
             json.dump(self.best_params, f, indent=2)
-        print(f"  ✓ Best parameters: {best_params_path}")
+        print(f"  [OK] Best parameters: {best_params_path}")
         
         # Save study object
         study_path = self.output_dir / 'study.pkl'
         joblib.dump(self.study, study_path)
-        print(f"  ✓ Study object: {study_path}")
+        print(f"  [OK] Study object: {study_path}")
         
         # Save trials dataframe
         trials_df = self.study.trials_dataframe()
         trials_csv_path = self.output_dir / 'trials_dataframe.csv'
         trials_df.to_csv(trials_csv_path, index=False)
-        print(f"  ✓ Trials dataframe: {trials_csv_path}")
+        print(f"  [OK] Trials dataframe: {trials_csv_path}")
         
         # Save parameter importance
         try:
@@ -456,9 +456,9 @@ class OptunaModelTuner:
             
             importance_path = self.output_dir / 'parameter_importance.csv'
             importance_df.to_csv(importance_path, index=False)
-            print(f"  ✓ Parameter importance: {importance_path}")
+            print(f"  [OK] Parameter importance: {importance_path}")
         except Exception as e:
-            print(f"  ⚠ Could not compute parameter importance: {e}")
+            print(f"  [WARN] Could not compute parameter importance: {e}")
         
         # Save summary report
         summary_path = self.output_dir / 'tuning_summary.txt'
@@ -514,7 +514,7 @@ class OptunaModelTuner:
                 for i, score in enumerate(fold_scores, 1):
                     f.write(f"    Fold {i}: {score:.4f}\n")
         
-        print(f"  ✓ Summary report: {summary_path}")
+        print(f"  [OK] Summary report: {summary_path}")
         print()
     
     def generate_visualizations(self):
@@ -525,33 +525,33 @@ class OptunaModelTuner:
             # Optimization history
             fig = plot_optimization_history(self.study)
             fig.write_html(str(self.output_dir / 'optimization_history.html'))
-            print(f"  ✓ Optimization history")
+            print(f"  [OK] Optimization history")
             
             # Parameter importance
             fig = plot_param_importances(self.study)
             fig.write_html(str(self.output_dir / 'parameter_importance.html'))
-            print(f"  ✓ Parameter importance")
+            print(f"  [OK] Parameter importance")
             
             # Slice plot
             fig = plot_slice(self.study)
             fig.write_html(str(self.output_dir / 'parameter_slice.html'))
-            print(f"  ✓ Parameter slice plot")
+            print(f"  [OK] Parameter slice plot")
             
             # Contour plot (top 2 important parameters)
             try:
                 fig = plot_contour(self.study)
                 fig.write_html(str(self.output_dir / 'parameter_contour.html'))
-                print(f"  ✓ Parameter contour plot")
+                print(f"  [OK] Parameter contour plot")
             except:
-                print(f"  ⚠ Could not generate contour plot")
+                print(f"  [WARN] Could not generate contour plot")
             
             # Parallel coordinate plot
             fig = plot_parallel_coordinate(self.study)
             fig.write_html(str(self.output_dir / 'parallel_coordinate.html'))
-            print(f"  ✓ Parallel coordinate plot")
+            print(f"  [OK] Parallel coordinate plot")
             
         except Exception as e:
-            print(f"  ⚠ Some visualizations failed: {e}")
+            print(f"  [WARN] Some visualizations failed: {e}")
         
         print()
 

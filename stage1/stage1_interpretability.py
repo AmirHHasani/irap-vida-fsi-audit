@@ -181,28 +181,52 @@ def run_shap_analysis(model, X_train, X_test, top_n=N_TOP_FEATURES_SHAP, plot_fi
     )
     print(f"   [DEBUG] SHAP Explanation object created successfully")
 
-    # --- 1. Generate Enhanced SHAP Summary (Violin) Plot (Optional) ---
+    # --- 1. Generate SHAP Beeswarm + Violin Plots (Optional) ---
     if plot_filename is not None:
-        print("   Generating and saving enhanced SHAP summary plot...")
-        try:
-            fig, ax = plt.subplots()
-            # Try violin plot first, fallback to dot plot if violin fails (e.g., insufficient data variation)
-            try:
-                shap.summary_plot(shap_explanation, max_display=top_n, show=False, plot_type='violin')
-            except Exception:
-                plt.close(fig)  # Close the failed figure
-                fig, ax = plt.subplots()
-                shap.summary_plot(shap_explanation, max_display=top_n, show=False, plot_type='dot')
+        print("   Generating SHAP summary plots (beeswarm + violin)...")
 
-            plt.subplots_adjust(left=0.35) # Give more space for long feature names
-            save_plot(fig, plot_filename, directory=output_dir)
+        # Helper: capture current figure after a SHAP plotting call
+        def _save_shap_figure(fname):
+            fig = plt.gcf()
+            fig.set_size_inches(12, 0.4 * min(top_n, shap_explanation.values.shape[1]) + 2)
+            plt.subplots_adjust(left=0.35)
+            save_plot(fig, fname, directory=output_dir)
             plt.close(fig)
-            print(f"   [DEBUG] SHAP summary plot saved successfully")
+
+        # --- 1a. Beeswarm (dot) plot — canonical blue-red gradient ---
+        try:
+            plt.close('all')
+            # Prefer modern shap.plots.beeswarm (SHAP ≥ 0.40)
+            if hasattr(shap, 'plots') and hasattr(shap.plots, 'beeswarm'):
+                shap.plots.beeswarm(shap_explanation, max_display=top_n, show=False)
+            else:
+                shap.summary_plot(shap_explanation, max_display=top_n, show=False,
+                                  plot_type='dot')
+            _save_shap_figure(plot_filename)
+            print(f"   [OK] SHAP beeswarm plot saved: {plot_filename}")
         except Exception as e:
-            print(f"   [ERROR] Failed to create SHAP summary plot: {e}")
-            traceback.print_exc()
-            # Don't raise here - let the function continue with other analyses
-            print("   [WARNING] Continuing without summary plot")
+            print(f"   [WARN] Beeswarm plot failed ({e}); trying legacy summary_plot...")
+            try:
+                plt.close('all')
+                shap.summary_plot(shap_explanation, max_display=top_n, show=False)
+                _save_shap_figure(plot_filename)
+            except Exception as e2:
+                print(f"   [ERROR] All beeswarm attempts failed: {e2}")
+                traceback.print_exc()
+
+        # --- 1b. Violin plot — shows feature-value distributions ---
+        violin_filename = plot_filename.replace('.png', '_violin.png')
+        try:
+            plt.close('all')
+            if hasattr(shap, 'plots') and hasattr(shap.plots, 'violin'):
+                shap.plots.violin(shap_explanation, max_display=top_n, show=False)
+            else:
+                shap.summary_plot(shap_explanation, max_display=top_n, show=False,
+                                  plot_type='violin')
+            _save_shap_figure(violin_filename)
+            print(f"   [OK] SHAP violin plot saved: {violin_filename}")
+        except Exception as e:
+            print(f"   [WARN] Violin plot failed ({e}), skipping.")
     else:
         print("   Skipping global SHAP summary plot (plot_filename=None)")
 

@@ -10,6 +10,7 @@ which Stage 1 hotspots triggered the analysis.
 from __future__ import annotations
 
 import argparse
+import math
 import re
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
@@ -24,23 +25,28 @@ from stage2_config import (
     ALL_TREATMENTS,
     BINARY_TREATMENTS,
     ORDINAL_TREATMENTS,
+    OUTCOME_EPSILON,
 )
 
 # ---------------------------------------------------------------------------
 # RUN DIRECTORY OVERRIDE
 # ---------------------------------------------------------------------------
-# By default we read/write under stage2_config.OUTPUT_DIR (which already points
-# to the latest Stage 1 run).  Set CUSTOM_STAGE2_OUTPUT_DIR to a specific path
-# if you need to explicitly target another Stage 2 run without editing the
-# global config.  Example:
-#   CUSTOM_STAGE2_OUTPUT_DIR = Path(
-#       'stage2_outputs/from_stage1_2025-11-29'
-#   )
+# By default we read/write under stage2_config.OUTPUT_DIR. Set this to a
+# specific run folder only if you intentionally want to target a non-default
+# Stage 2 run without editing the global config.
+#
+# Example:
+#   CUSTOM_STAGE2_OUTPUT_DIR = Path("stage2_outputs/from_stage1_2026-02-23/2026-02-24_18-47-18")
+#
 # Leave as None to keep automatic behaviour.
 CUSTOM_STAGE2_OUTPUT_DIR: Path | None = None
 
 ACTIVE_OUTPUT_DIR = CUSTOM_STAGE2_OUTPUT_DIR or OUTPUT_DIR
-ANALYSIS_DATASET_PATH = ACTIVE_OUTPUT_DIR / "data" / "analysis_dataset.csv"
+# analysis_dataset.csv lives one level up from the timestamped run folder
+_analysis_candidate = ACTIVE_OUTPUT_DIR / "data" / "analysis_dataset.csv"
+if not _analysis_candidate.exists():
+    _analysis_candidate = ACTIVE_OUTPUT_DIR.parent / "data" / "analysis_dataset.csv"
+ANALYSIS_DATASET_PATH = _analysis_candidate
 
 
 def _normalize_treatment_name(name: str) -> str:
@@ -120,30 +126,27 @@ EPS = 1e-6
 # Optional: collapse multiple datasets into broader reporting regions.
 # This affects downstream regional summaries/figures (e.g., Figure 4).
 # If a dataset is not listed below, we keep its existing `Region` value.
+# Keys use generic region labels (no country names per anonymisation constraint).
 REGIONAL_GROUPINGS: Dict[str, Dict[str, object]] = {
-    "EU_Central_Adriatic": {
+    "Region_A": {
         "name": "EU Central/Adriatic",
-        "datasets": ["1240", "1242", "1424", "1425", "1426"],  # SLO + HRV
-        "countries": "Slovenia, Croatia",
-        "description": "SLO (2 datasets), HRV (3 datasets)",
+        "datasets": ["1240", "1242", "1424", "1425", "1426"],
+        "description": "5 datasets, 2 countries, Central/Adriatic",
     },
-    "NonEU_Western_Balkans": {
+    "Region_B": {
         "name": "Western Balkans (non-EU)",
-        "datasets": ["1246", "1247", "12008"],  # BIH + MNE
-        "countries": "Bosnia and Herzegovina, Montenegro",
-        "description": "BIH (2 datasets), MNE (1 dataset)",
+        "datasets": ["1246", "1247", "12008"],
+        "description": "3 datasets, 2 countries, Western Balkans",
     },
-    "EU_Southeast_Balkan": {
+    "Region_C": {
         "name": "EU Southeast Europe",
-        "datasets": ["1398", "1400", "12983"],  # BGR + ROU + GRC
-        "countries": "Bulgaria, Romania, Greece",
-        "description": "BGR (1 dataset), ROU (1 dataset), GRC (1 dataset)",
+        "datasets": ["1398", "1400", "12983"],
+        "description": "3 datasets, 3 countries, Southeast Europe",
     },
-    "Eastern Europe": {
-        'name': 'Eastern Europe',
-        "datasets": ["980"],  # UKR
-        'countries': 'Ukraine',
-        'description': 'UKR (1 dataset)'
+    "Region_D": {
+        "name": "Eastern Europe",
+        "datasets": ["980"],
+        "description": "1 dataset, 1 country, Eastern Europe",
     },
 }
 
@@ -182,14 +185,43 @@ def _apply_region_groupings(df: pd.DataFrame) -> pd.DataFrame:
 
     return out
 
-CF_COLUMN_MAP: Dict[str, str] = {
-    "Centreline rumble strips": "centreline_rumble_strips_cate",
-    "Delineation": "delineation_cate",
-    "Street lighting": "street_lighting_cate",
-    "Paved shoulder - driver-side": "paved_shoulder_driver-side_cate",
-    "Paved shoulder - passenger-side": "paved_shoulder_passenger-side_cate",
-    "Road condition": "road_condition_cate",
+# ---------------------------------------------------------------------------
+# CONTRAST-BASED CATE COLUMN HELPERS
+# ---------------------------------------------------------------------------
+# The hierarchical causal forest outputs one CATE column per adjacent-step
+# contrast (e.g. 0→1, 1→2) rather than one per treatment.  Column names
+# follow the pattern:  {treatment_slug}__{from}_to_{to}_cate
+#   with matching _ci_lower / _ci_upper columns.
+
+TREATMENT_CF_SLUG: Dict[str, str] = {
+    "Centreline rumble strips": "centreline_rumble_strips",
+    "Delineation": "delineation",
+    "Street lighting": "street_lighting",
+    "Paved shoulder - driver-side": "paved_shoulder_driver-side",
+    "Paved shoulder - passenger-side": "paved_shoulder_passenger-side",
+    "Road condition": "road_condition",
 }
+
+
+def _contrast_columns_for_treatment(
+    treatment: str,
+) -> Dict[Tuple[int, int], str]:
+    """Return ``{(from_level, to_level): cate_column_name}`` for *treatment*."""
+    slug = TREATMENT_CF_SLUG[treatment]
+    meta = TREATMENT_LEVEL_METADATA[treatment]
+    order: list = meta["order"]
+    return {
+        (order[i], order[i + 1]): f"{slug}__{order[i]}_to_{order[i + 1]}_cate"
+        for i in range(len(order) - 1)
+    }
+
+
+def _all_expected_contrast_columns() -> List[str]:
+    """Return every CATE column we expect to find in the hotspot CSV."""
+    cols: List[str] = []
+    for treatment in ALL_TREATMENTS:
+        cols.extend(_contrast_columns_for_treatment(treatment).values())
+    return cols
 
 
 @dataclass
@@ -412,33 +444,31 @@ def priority_label(pct_reduction: float) -> str:
 def build_recommendations(hotspots: pd.DataFrame) -> pd.DataFrame:
     recommendations: List[Recommendation] = []
 
-    unknown_treatments = sorted(set(ALL_TREATMENTS) - set(CF_COLUMN_MAP.keys()))
+    unknown_treatments = sorted(set(ALL_TREATMENTS) - set(TREATMENT_CF_SLUG.keys()))
     if unknown_treatments:
         raise ValueError(
-            "Missing Stage 2 column mapping for treatments: " + ", ".join(unknown_treatments)
+            "Missing CF slug mapping for treatments: " + ", ".join(unknown_treatments)
         )
 
-    missing_cols = [col for col in CF_COLUMN_MAP.values() if col not in hotspots.columns]
+    expected_cols = _all_expected_contrast_columns()
+    missing_cols = [col for col in expected_cols if col not in hotspots.columns]
     if missing_cols:
-        raise ValueError(f"Missing CATE columns in CF output: {missing_cols}")
+        raise ValueError(f"Missing CATE contrast columns in CF output: {missing_cols}")
+
+    # Pre-compute contrast mappings once
+    treatment_contrasts = {
+        treatment: _contrast_columns_for_treatment(treatment)
+        for treatment in ALL_TREATMENTS
+    }
 
     for _, row in hotspots.iterrows():
-        baseline = max(row.get("actual_risk", 0.0), EPS)
-        for treatment, cate_col in CF_COLUMN_MAP.items():
-            cate_val = row.get(cate_col)
-            if pd.isna(cate_val):
-                continue
-
-            abs_reduction = max(0.0, -float(cate_val))
-            pct_reduction = abs_reduction / baseline * 100.0
-            if abs_reduction < MIN_ABSOLUTE_REDUCTION or pct_reduction < MIN_PERCENT_REDUCTION:
-                continue
-
-            ci_lower = row.get(cate_col.replace("_cate", "_ci_lower"))
-            ci_upper = row.get(cate_col.replace("_cate", "_ci_upper"))
-            conf = confidence_label(ci_lower, ci_upper)
-            priority = priority_label(pct_reduction)
-
+        # actual_risk is on the log scale: log(FSI + eps).
+        # Convert to FSI scale for absolute and relative reduction thresholds.
+        baseline_log = float(row.get("actual_risk", 0.0))
+        baseline_plus = math.exp(baseline_log)          # FSI + eps
+        baseline_fsi = max(baseline_plus - OUTCOME_EPSILON, EPS)  # FSI
+        for treatment in ALL_TREATMENTS:
+            # ---- current level --------------------------------------------------
             current_col = CURRENT_LEVEL_COLUMN_MAP.get(treatment)
             current_val = row.get(current_col) if current_col else None
             current_level = None
@@ -447,9 +477,34 @@ def build_recommendations(hotspots: pd.DataFrame) -> pd.DataFrame:
                     current_level = int(current_val)
                 except (ValueError, TypeError):
                     current_level = None
-            current_level_label = describe_level(treatment, current_level)
 
             target_level = get_next_better_level(treatment, current_level)
+
+            # Skip if current level is unknown or already at best
+            if current_level is None or target_level is None or target_level == current_level:
+                continue
+
+            # ---- pick the adjacent-step contrast column -------------------------
+            contrast_key = (current_level, target_level)
+            cate_col = treatment_contrasts[treatment].get(contrast_key)
+            if cate_col is None:
+                continue
+
+            cate_val = row.get(cate_col)
+            if pd.isna(cate_val):
+                continue
+
+            abs_reduction = max(0.0, baseline_plus * (1.0 - math.exp(float(cate_val))))
+            pct_reduction = abs_reduction / baseline_fsi * 100.0
+            if abs_reduction < MIN_ABSOLUTE_REDUCTION or pct_reduction < MIN_PERCENT_REDUCTION:
+                continue
+
+            ci_lower = row.get(cate_col.replace("_cate", "_ci_lower"))
+            ci_upper = row.get(cate_col.replace("_cate", "_ci_upper"))
+            conf = confidence_label(ci_lower, ci_upper)
+            priority = priority_label(pct_reduction)
+
+            current_level_label = describe_level(treatment, current_level)
             target_level_label = describe_level(treatment, target_level)
             level_change_label = None
             if (
@@ -495,7 +550,7 @@ def build_recommendations(hotspots: pd.DataFrame) -> pd.DataFrame:
                     current_level_label=current_level_label,
                     target_level_label=target_level_label,
                     level_change_label=level_change_label,
-                    baseline_risk=float(baseline),
+                    baseline_risk=baseline_fsi,
                 )
             )
 
@@ -775,7 +830,7 @@ def save_outputs(
 
     if not recs.empty:
         recs.to_csv(rec_path, index=False)
-        print(f"✓ Saved prescriptions: {rec_path}")
+        print(f"[OK] Saved prescriptions: {rec_path}")
     else:
         print("No prescriptions saved (empty recommendations).")
 
@@ -817,15 +872,15 @@ def save_outputs(
 
     region_files = export_region_recommendations(recs, timestamp)
 
-    print(f"✓ Saved segment summaries: {seg_path}")
-    print(f"✓ Saved road summaries: {road_path}")
-    print(f"✓ Saved region summaries: {region_path}")
-    print(f"✓ Saved region-treatment summaries: {region_treatment_path}")
+    print(f"[OK] Saved segment summaries: {seg_path}")
+    print(f"[OK] Saved road summaries: {road_path}")
+    print(f"[OK] Saved region summaries: {region_path}")
+    print(f"[OK] Saved region-treatment summaries: {region_treatment_path}")
     if treatment_change_summary.empty:
         print("No level-change summary (insufficient upgrade information).")
     else:
-        print(f"✓ Saved treatment-change summary: {treatment_change_path}")
-    print(f"✓ Saved Stage 1 hotspot inventory: {stage1_path}")
+        print(f"[OK] Saved treatment-change summary: {treatment_change_path}")
+    print(f"[OK] Saved Stage 1 hotspot inventory: {stage1_path}")
     if region_files:
         print("Regional prescription files:")
         for path in region_files:

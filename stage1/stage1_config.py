@@ -1,46 +1,3 @@
-# =============================================================================
-# 7. ADVANCED EXPLANATION CONTROL (EXPERT FIX)
-# =============================================================================
-# Column used to group data by road for Leave-One-Group-Out validation
-# Use `Road name` as canonical road identifier (more complete values in dataset)
-ROAD_COLUMN_NAME = 'Road name'
-# stage1_config.py
-"""
-Configuration and constants for the Stage 1 Interpretable Road Risk Modeling pipeline.
-
-This file serves as the single source of truth for all file paths, column names,
-feature definitions, model parameters, and analysis settings. Modifying this
-file allows for easy adaptation of the entire pipeline without changing the
-core logic in the other modules.
-"""
-
-from pathlib import Path
-
-# =============================================================================
-# 0. CRITICAL MISSING VARIABLES (STAGE 2 FIXES)
-# =============================================================================
-# These critical variables were identified as missing in Stage 2 analysis
-
-# Model configuration
-# (Keep PRIMARY_MODEL_TYPE; MODEL_TYPE/N_FOLDS are legacy aliases removed)
-
-# Data paths
-_BASE_DIR = Path(__file__).parent.parent
-# Centralized input directory (repo-relative)
-INPUT_DATA_DIR = _BASE_DIR / 'input_data'
-# Canonical segments CSV path
-SEGMENTS_DATA_CSV = INPUT_DATA_DIR / 'segments_unique.csv'
-
-# =============================================================================
-# 1. CORE ANALYSIS STRATEGY
-# =============================================================================
-# This is the most important setting for controlling the analysis.
-# It directly corresponds to the "Two-Split" methodology for the paper.
-
-
-
-# =============================================================================
-# 2. FILE AND DIRECTORY PATHS
 """
 stage1_config.py
 Central configuration for Stage 1: Interpretable Road Risk Modeling
@@ -83,12 +40,11 @@ METADATA_COLS = [
 # 2. Feature lists & exclusions
 # -----------------------------------------------------------------------------
 NUMERICAL_FEATURES = [
-    #'Vehicle flow (AADT)'  # MOVED TO EXCLUSIONS (might be the Leakage Source)
+    'Vehicle flow (AADT)'
 ]
-#'Dataset ID',
 CATEGORICAL_FEATURES = [
-    'Upgrade cost', #'Bicycle peak hour flow', 'Motorcycle %', 'Pedestrian peak hour flow across the road', 'Pedestrian peak hour flow along the road driver-side',
-    #'Pedestrian peak hour flow along the road passenger-side', 'Operating Speed (85th percentile)',
+    'Dataset ID', 'Upgrade cost', 'Bicycle peak hour flow', 'Motorcycle %', 'Pedestrian peak hour flow across the road', 'Pedestrian peak hour flow along the road driver-side',
+    'Pedestrian peak hour flow along the road passenger-side', 'Operating Speed (85th percentile)',
     'Area type', 'Carriageway', 'Centreline rumble strips', 'Curvature', 'Delineation', 'Differential speed limits',
     'Facilities for bicycles', 'Facilities for motorised two wheelers', 'Grade', 'Intersection channelisation',
     'Intersection quality', 'Quality of curve', 'Number of lanes', 'Intersection type', 'Land use - driver-side', 'Land use - passenger-side', 'Lane width',
@@ -103,6 +59,26 @@ CATEGORICAL_FEATURES = [
     'Pedestrian observed flow along the road driver-side', 'Pedestrian observed flow along the road passenger-side',
     'Truck speed limit'
 ]
+
+#'Dataset ID',
+
+# CATEGORICAL_FEATURES = [
+#     'Upgrade cost', #'Bicycle peak hour flow', 'Motorcycle %', 'Pedestrian peak hour flow across the road', 'Pedestrian peak hour flow along the road driver-side',
+#     #'Pedestrian peak hour flow along the road passenger-side', 'Operating Speed (85th percentile)',
+#     'Area type', 'Carriageway', 'Centreline rumble strips', 'Curvature', 'Delineation', 'Differential speed limits',
+#     'Facilities for bicycles', 'Facilities for motorised two wheelers', 'Grade', 'Intersection channelisation',
+#     'Intersection quality', 'Quality of curve', 'Number of lanes', 'Intersection type', 'Land use - driver-side', 'Land use - passenger-side', 'Lane width',
+#     'Median type', 'Paved shoulder - driver-side', 'Paved shoulder - passenger-side', 'Pedestrian crossing facilities - inspected road',
+#     'Pedestrian crossing facilities - intersecting road', 'Pedestrian crossing quality', 'Pedestrian fencing',
+#     'Property access points', 'Road condition', 'Roadside severity - driver-side distance',
+#     'Roadside severity - driver-side object', 'Roadside severity - passenger-side distance', 'Roadside severity - passenger-side object',
+#     'Roadworks', 'School zone crossing supervisor', 'School zone warning', 'Service road', 'Shoulder rumble strips',
+#     'Sidewalk - driver-side', 'Sidewalk - passenger-side', 'Sight distance', 'Skid resistance / grip', 'Speed limit',
+#     'Speed management / traffic calming', 'Street lighting', 'Vehicle parking',
+#     'Motorcycle observed flow', 'Motorcycle speed limit', 'Bicycle observed flow', 'Intersecting road volume', 'Pedestrian observed flow across the road',
+#     'Pedestrian observed flow along the road driver-side', 'Pedestrian observed flow along the road passenger-side',
+#     'Truck speed limit'
+# ]
 
 # -----------------------------------------------------------------------------
 # 3. Target transformation controls
@@ -124,7 +100,7 @@ CV_STRATIFICATION_MODE = 'target_mean'
 CV_STRATIFICATION_BINS = 5  # number of quantile bins when applicable
 
 FEATURE_EXCLUSIONS = [
-    #'Vehicle flow (AADT)',  # CRITICAL FIX: Identified as source of circular leakage (Target = Rate * AADT)
+    #'Vehicle flow (AADT)',
     'Operating Speed (mean)', 'Roads that cars can read', 'Length', 'Bicycle Star Rating Policy Target', 'Bicyclist Fatality Estimation Along per km per year',
     'Bicyclist Fatality Estimation Intersection per km per year ', 'Bicyclist Fatality Estimation Run-Off per km per year',
     'Bicyclist Fatality Estimation Total per km per year', 'Bicyclist SRS Along', 'Bicyclist SRS Intersection',
@@ -188,6 +164,9 @@ SPLIT_STRATEGY = 'BY_ROAD'  # Options: 'RANDOM','BY_ROAD','DIAGNOSTIC'
 HOTSPOT_K = 3
 HOTSPOT_K_LIST = [1, 3, 5]
 MAX_HOTSPOT_SEGMENTS_PER_ROAD = None
+
+# Bootstrap iterations for kappa / overlap CI computation (Step 2b)
+BOOTSTRAP_N_ITERATIONS = 2000
 
 # Directory name for hotspot SHAP outputs (under run output)
 HOTSPOT_SHAP_DIR_NAME = 'hotspot_shap'
@@ -277,10 +256,8 @@ ENCODER_CACHE_MAXSIZE = 1000
 # -----------------------------------------------------------------------------
 # 10. Reporting & testing helpers
 # -----------------------------------------------------------------------------
-PUB_TOP_FEATURES_CSV = 'pub_top_features.csv'
 COUNTERMEASURE_OVERLAY_MAP_HTML = 'hotspot_prediction_overlay_map.html'
 COUNTERMEASURE_OVERLAY_MAP_PNG = 'hotspot_prediction_overlay_map.png'
-COUNTERMEASURE_COVERAGE_CSV = 'countermeasure_coverage_summary.csv'
 
 # Filename for interactive hotspot overlay map
 HOTSPOT_OVERLAY_MAP_HTML = 'hotspot_prediction_overlay_map.html'
@@ -315,26 +292,66 @@ CALIBRATION_NUM_BINS = 10
 # 12. Regional SHAP Analysis Configuration
 # -----------------------------------------------------------------------------
 # Dataset to country mapping
+# DATASET_COUNTRY_MAP = {
+
+#     #'code': 'country_abbreviation'
+# }
+
 DATASET_COUNTRY_MAP = {
-
-    #'code': 'country_abbreviation'
+    '12008': 'MNE',   # Montenegro
+    '1240': 'SLO',    # Slovenia
+    '1242': 'SLO',    # Slovenia
+    '1246': 'BIH',    # Bosnia and Herzegovina
+    '1247': 'BIH',    # Bosnia and Herzegovina
+    '12983': 'GRC',   # Greece
+    '1398': 'BGR',    # Bulgaria
+    '1400': 'ROU',    # Romania
+    '1424': 'HRV',    # Croatia
+    '1425': 'HRV',    # Croatia
+    '1426': 'HRV',    # Croatia
+    '980': 'UKR',     # Ukraine
 }
-
-
 # -----------------------------------------------------------------------------
 # regional groupings:
 # -----------------------------------------------------------------------------
 # Rationale: group by broadly similar road design/maintenance regimes and network
 # maturity, rather than strict geographic labels.
+# REGIONAL_GROUPINGS = {
+#         # 'name': {
+#         #     'name': 'Ename',
+#         #     'datasets': ['id', 'id', ...], 
+#         #     'countries': 'country name1, country name2, ...',
+#         #     'description': 'as needed'
+#         # },
+#         # other regions...
+# }
 REGIONAL_GROUPINGS = {
-        # 'name': {
-        #     'name': 'Ename',
-        #     'datasets': ['id', 'id', ...], 
-        #     'countries': 'country name1, country name2, ...',
-        #     'description': 'as needed'
-        # },
-        # other regions...
+    'EU_Central_Adriatic': {
+        'name': 'EU Central/Adriatic',
+        'datasets': ['1240', '1242', '1424', '1425', '1426'],  # SLO + HRV
+        'countries': 'Slovenia, Croatia',
+        'description': 'SLO (2 datasets), HRV (3 datasets)'
+    },
+    'NonEU_Western_Balkans': {
+        'name': 'Western Balkans (non-EU)',
+        'datasets': ['1246', '1247', '12008'],  # BIH + MNE
+        'countries': 'Bosnia and Herzegovina, Montenegro',
+        'description': 'BIH (2 datasets), MNE (1 dataset)'
+    },
+    'EU_Southeast_Balkan': {
+        'name': 'EU Southeast Europe',
+        'datasets': ['1398', '1400', '12983'],  # BGR + ROU + GRC
+        'countries': 'Bulgaria, Romania, Greece',
+        'description': 'BGR (1 dataset), ROU (1 dataset), GRC (1 dataset)'
+    },
+    'Eastern_Europe': {
+        'name': 'Eastern Europe',
+        'datasets': ['980'],  # UKR
+        'countries': 'Ukraine',
+        'description': 'UKR (1 dataset)'
+    },
 }
+
 
 # -----------------------------------------------------------------------------
 # Utility functions used by modules (kept minimal)

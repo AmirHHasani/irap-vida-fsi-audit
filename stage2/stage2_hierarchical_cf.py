@@ -34,6 +34,7 @@ NOTES
 from __future__ import annotations
 
 import argparse
+import gc
 import shutil
 import sys
 import pandas as pd
@@ -95,10 +96,12 @@ class DatasetStratifiedGroupKFold:
 
 
 def _default_stage2_output_root() -> Path:
-    # Keep defaults backward compatible with stage2_config.OUTPUT_DIR when no CLI flags are provided.
+    """Create a timestamped sub-folder under the config OUTPUT_DIR so
+    successive Stage 2 runs do not overwrite each other."""
     from stage2_config import OUTPUT_DIR
 
-    return Path(OUTPUT_DIR)
+    ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    return Path(OUTPUT_DIR) / ts
 
 
 def _runs_root() -> Path:
@@ -459,18 +462,236 @@ def prepare_data(*, output_dir: Path):
 # PHASE B: CAUSAL FOREST ESTIMATION
 # ============================================================================
 
+def _build_cf_model(*, nuisance_params, forest_params, cv_splitter, is_discrete):
+    """Build a fresh CausalForestDML model with the given parameters."""
+    nuisance_n_estimators = int(nuisance_params.get("n_estimators", 500))
+    nuisance_max_depth = int(nuisance_params.get("max_depth", 10))
+    nuisance_min_samples_leaf = int(nuisance_params.get("min_samples_leaf", 5))
+
+    cf_n_estimators = int(forest_params.get("n_estimators", 2000))
+    cf_max_depth = int(forest_params.get("max_depth", 8))
+    cf_min_samples_leaf = int(forest_params.get("min_samples_leaf", 10))
+    cf_mc_iters = int(forest_params.get("mc_iters", 4))
+
+    model_t = RandomForestClassifier(
+        n_estimators=nuisance_n_estimators,
+        max_depth=nuisance_max_depth,
+        min_samples_leaf=nuisance_min_samples_leaf,
+        max_features='sqrt',
+        random_state=42,
+        n_jobs=-1,
+    )
+
+    return CausalForestDML(
+        model_y=RandomForestRegressor(
+            n_estimators=nuisance_n_estimators,
+            max_depth=nuisance_max_depth,
+            min_samples_leaf=nuisance_min_samples_leaf,
+            max_features='sqrt',
+            random_state=42,
+            n_jobs=-1,
+        ),
+        model_t=model_t,
+        discrete_treatment=is_discrete,
+        n_estimators=cf_n_estimators,
+        max_depth=cf_max_depth,
+        min_samples_leaf=cf_min_samples_leaf,
+        min_var_fraction_leaf=0.1,
+        min_var_leaf_on_val=True,
+        cv=cv_splitter,
+        mc_iters=cf_mc_iters,
+        inference=True,
+        random_state=42,
+        n_jobs=-1,
+    )
+
+
+def _as_1d(arr: np.ndarray) -> np.ndarray:
+    arr = np.asarray(arr)
+    if arr.ndim == 2 and arr.shape[1] == 1:
+        return arr[:, 0]
+    if arr.ndim != 1:
+        raise ValueError(f"Expected 1D effect array, got shape {arr.shape}")
+    return arr
+
+
+def _fit_single_binary_contrast(
+    *,
+    data,
+    X_features,
+    treatment,
+    t0,
+    t1,
+    contrast_type,
+    baseline_level,
+    ordered_levels,
+    params,
+    verbose,
+):
+    """Fit a single binary CausalForestDML for one contrast (t0 vs t1).
+
+    For ordinal treatments this restricts to segments whose treatment value
+    equals *t0* or *t1*, matching the paper methodology (§3.6):
+    "For each adjacent-step contrast, we restrict estimation to segments whose
+    current code equals either t or t+1, and define a binary treatment
+    indicator with T=1 for the better level."
+
+    Returns a dict with keys matching the contract expected by the main loop,
+    or None on failure.
+    """
+    nuisance_params = params.get("nuisance", {})
+    forest_params = params.get("causal_forest", {})
+
+    # --- restrict to the two relevant levels ---
+    Y_full = data['actual_risk'].values
+    T_full = data[treatment].values
+    X_full = X_features.values
+    groups_full = data['road_id'].values
+
+    # Keep only segments in {t0, t1} that have valid Y and T
+    level_mask = np.isin(T_full, [t0, t1])
+    valid_mask = ~(pd.isna(Y_full) | pd.isna(T_full)) & level_mask
+
+    Y_sub = Y_full[valid_mask]
+    T_sub = T_full[valid_mask]
+    X_sub = X_full[valid_mask]
+    groups_sub = groups_full[valid_mask]
+
+    # Binary recode: 0 for t0, 1 for t1
+    T_bin = (np.round(T_sub) == int(round(t1))).astype(int)
+
+    if len(np.unique(T_bin)) < 2:
+        if verbose:
+            print(f"    X Contrast {int(t0)}->{int(t1)}: no variation after filtering")
+        return None
+
+    n_roads = len(np.unique(groups_sub))
+    if n_roads < 2:
+        if verbose:
+            print(f"    X Contrast {int(t0)}->{int(t1)}: too few roads ({n_roads})")
+        return None
+
+    if verbose:
+        n0 = int((T_bin == 0).sum())
+        n1 = int((T_bin == 1).sum())
+        print(f"    Contrast {int(t0)}->{int(t1)}: n={len(Y_sub):,} (T=0:{n0:,}, T=1:{n1:,}, roads={n_roads})")
+        print(f"      Fitting binary CausalForestDML...", end=' ', flush=True)
+
+    # Build CV splitter for the SUBSET
+    n_splits = min(5, n_roads)
+    if 'Dataset ID' not in data.columns:
+        raise KeyError("Dataset ID column is required to balance folds by survey composition")
+    dataset_id_sub = data.loc[valid_mask, 'Dataset ID'].to_numpy()
+    cv_splitter = DatasetStratifiedGroupKFold(
+        n_splits=n_splits,
+        dataset_id=dataset_id_sub,
+        shuffle=True,
+        random_state=42,
+    )
+
+    cf_model = _build_cf_model(
+        nuisance_params=nuisance_params,
+        forest_params=forest_params,
+        cv_splitter=cv_splitter,
+        is_discrete=True,
+    )
+
+    try:
+        gc.collect()
+        cf_model.fit(Y=Y_sub, T=T_bin, X=X_sub, W=None, groups=groups_sub)
+
+        if verbose:
+            print("OK")
+            print(f"      Estimating segment-specific effects...", end=' ', flush=True)
+
+        # effect(T0=0, T1=1) gives the contrast t0 -> t1
+        segment_cates_sub = _as_1d(cf_model.effect(X_sub, T0=0, T1=1))
+
+        # Confidence intervals
+        try:
+            ci = cf_model.effect_interval(X_sub, T0=0, T1=1, alpha=0.05)
+            ci_lower_sub = _as_1d(ci[0])
+            ci_upper_sub = _as_1d(ci[1])
+        except Exception:
+            if verbose:
+                print(f"\n      Warning: CI failed for {int(t0)}->{int(t1)}; using bootstrap (200 iters)...")
+            n_boot = 200
+            rng = np.random.default_rng(42)
+            n_sub = len(X_sub)
+            boot_sum = np.zeros(n_sub, dtype=float)
+            boot_sq_sum = np.zeros(n_sub, dtype=float)
+            for _ in range(n_boot):
+                idx = rng.choice(n_sub, n_sub, replace=True)
+                b_cate = _as_1d(cf_model.effect(X_sub[idx], T0=0, T1=1))
+                boot_sum += b_cate
+                boot_sq_sum += b_cate ** 2
+                del b_cate, idx
+            boot_mean = boot_sum / n_boot
+            boot_std = np.sqrt(np.maximum(boot_sq_sum / n_boot - boot_mean ** 2, 0))
+            ci_lower_sub = boot_mean - 1.96 * boot_std
+            ci_upper_sub = boot_mean + 1.96 * boot_std
+            del boot_sum, boot_sq_sum, boot_mean, boot_std
+
+        # Map back to full dataset (NaN for segments not in {t0, t1})
+        segment_cates = np.full(len(data), np.nan, dtype=float)
+        segment_cates[valid_mask] = segment_cates_sub
+
+        ci_lower = np.full(len(data), np.nan, dtype=float)
+        ci_upper = np.full(len(data), np.nan, dtype=float)
+        ci_lower[valid_mask] = ci_lower_sub
+        ci_upper[valid_mask] = ci_upper_sub
+
+        contrast_label = f"{treatment} [{int(t0)}->{int(t1)}]"
+        contrast_name = f"{treatment}__{int(t0)}_to_{int(t1)}"
+
+        if verbose:
+            print(f"\n      {contrast_label}: mean={np.nanmean(segment_cates):+.4f}, std={np.nanstd(segment_cates):.4f}")
+
+        result = {
+            "name": contrast_name,
+            "label": contrast_label,
+            "treatment_base": treatment,
+            "t0": float(t0),
+            "t1": float(t1),
+            "contrast_type": contrast_type,
+            "baseline_level": float(baseline_level),
+            "levels": ordered_levels,
+            "CATE_raw": segment_cates,
+            "CATE_ci_lower": ci_lower,
+            "CATE_ci_upper": ci_upper,
+        }
+
+        # Free model immediately
+        del cf_model, segment_cates_sub, ci_lower_sub, ci_upper_sub
+        gc.collect()
+
+        return result
+
+    except Exception as e:
+        if verbose:
+            print(f"X Failed: {str(e)[:80]}")
+        del cf_model
+        gc.collect()
+        return None
+
+
 def fit_causal_forest(data, X_features, treatment, *, params: dict | None = None, verbose=True):
     """
     Fit Causal Forest DML for a single treatment on ALL data.
+
+    For binary treatments, fits one model on all segments.
+    For ordinal treatments, fits separate binary models per adjacent-step
+    contrast restricting to segments at those two levels (matching §3.6).
     
     Args:
         data: Full dataset (all segments)
         X_features: Feature matrix (all segments)
         treatment: Treatment name
+        params: Optional dict with 'nuisance' and 'causal_forest' sub-dicts
         verbose: Print progress
     
     Returns:
-        model: Fitted CausalForestDML object
+        model: Fitted CausalForestDML object (or sentinel True for ordinal)
         contrast_results: List of dicts; one entry per explicit contrast with
             keys: name, treatment_base, t0, t1, contrast_type, baseline_level,
             levels, CATE_raw, CATE_ci_lower, CATE_ci_upper.
@@ -486,14 +707,9 @@ def fit_causal_forest(data, X_features, treatment, *, params: dict | None = None
     
     # Remove missing values
     valid_mask = ~(pd.isna(Y) | pd.isna(T))
-    Y_clean = Y[valid_mask]
     T_clean = T[valid_mask]
-    X_clean = X[valid_mask]
-    groups_clean = groups[valid_mask]
 
     # For discrete treatments, ensure integer-coded categories when possible.
-    # This aligns with EconML's discrete_treatment handling (one-hot with dropped
-    # baseline defined by lexicographic order of the categories).
     if np.all(np.isclose(T_clean, np.round(T_clean))):
         T_clean = np.round(T_clean).astype(int)
     
@@ -505,45 +721,9 @@ def fit_causal_forest(data, X_features, treatment, *, params: dict | None = None
             print(f"X No variation")
         return None, []
     
-    # This pipeline treats both binary and ordinal treatments as discrete.
-    # For ordinal treatments, we report *adjacent-level* contrasts using
-    # effect(X, T0, T1) / effect_interval(X, T0, T1) to keep the estimand
-    # unambiguous and persistent in outputs.
     is_binary = n_unique == 2
-    is_discrete = True
-    
-    n_roads = len(np.unique(groups_clean))
-    if n_roads < 2:
-        if verbose:
-            print("X Too few roads for grouped CV")
-        return None, []
 
-    if verbose:
-        treatment_type = "binary" if is_binary else "ordinal"
-        print(f"OK (n={len(Y_clean):,}, type={treatment_type}, values={n_unique}, roads={n_roads})")
-        print(f"    Fitting Causal Forest DML (road-grouped CV)...", end=' ', flush=True)
-    
-    # Road-grouped cross-fitting, balanced by Dataset ID (survey composition)
-    n_splits = min(5, n_roads)
-    if 'Dataset ID' not in data.columns:
-        raise KeyError("Dataset ID column is required to balance folds by survey composition")
-    dataset_id_clean = data.loc[valid_mask, 'Dataset ID'].to_numpy()
-    cv_splitter = DatasetStratifiedGroupKFold(
-        n_splits=n_splits,
-        dataset_id=dataset_id_clean,
-        shuffle=True,
-        random_state=42,
-    )
-
-    def _as_1d(arr: np.ndarray) -> np.ndarray:
-        arr = np.asarray(arr)
-        if arr.ndim == 2 and arr.shape[1] == 1:
-            return arr[:, 0]
-        if arr.ndim != 1:
-            raise ValueError(f"Expected 1D effect array, got shape {arr.shape}")
-        return arr
-
-    # Determine ordered treatment levels and explicit contrasts.
+    # Determine ordered levels and contrasts
     levels_sorted = sorted(float(x) for x in unique_levels)
     spec = get_spec(treatment)
     if getattr(spec, "canonical_order", None):
@@ -560,77 +740,89 @@ def fit_causal_forest(data, X_features, treatment, *, params: dict | None = None
     else:
         contrasts = [(ordered_levels[i], ordered_levels[i + 1], "adjacent") for i in range(len(ordered_levels) - 1)]
 
-    if verbose and not is_binary:
-        print(f"\n    Ordinal contrasts: {', '.join([f'{int(a)}→{int(b)}' for a, b, _ in contrasts])}")
-        print(
-            f"    Note: EconML encodes multi-valued discrete treatments internally with a dropped baseline; "
-            f"baseline={baseline_level} (lexicographically smallest)."
-        )
-
     params = params or {}
+
+    # ------------------------------------------------------------------
+    # ORDINAL PATH: fit separate binary models per adjacent contrast
+    # restricting to segments at those two levels (matches paper §3.6).
+    # ------------------------------------------------------------------
+    if not is_binary:
+        n_roads = len(np.unique(data['road_id'].values[valid_mask]))
+        if verbose:
+            print(f"OK (n={int(valid_mask.sum()):,}, type=ordinal, values={n_unique}, roads={n_roads})")
+            print(f"    Ordinal: fitting separate binary models per adjacent contrast")
+            print(f"    Contrasts: {', '.join([f'{int(a)}->{int(b)}' for a, b, _ in contrasts])}")
+
+        contrast_results = []
+        for t0, t1, contrast_type in contrasts:
+            cr = _fit_single_binary_contrast(
+                data=data,
+                X_features=X_features,
+                treatment=treatment,
+                t0=t0,
+                t1=t1,
+                contrast_type=contrast_type,
+                baseline_level=baseline_level,
+                ordered_levels=ordered_levels,
+                params=params,
+                verbose=verbose,
+            )
+            if cr is not None:
+                contrast_results.append(cr)
+
+        if not contrast_results:
+            return None, []
+        # Return sentinel True (no single model to return for ordinal)
+        return True, contrast_results
+
+    # ------------------------------------------------------------------
+    # BINARY PATH: single model on all segments (unchanged)
+    # ------------------------------------------------------------------
+    Y_clean = Y[valid_mask]
+    X_clean = X[valid_mask]
+    groups_clean = groups[valid_mask]
+
+    n_roads = len(np.unique(groups_clean))
+    if n_roads < 2:
+        if verbose:
+            print("X Too few roads for grouped CV")
+        return None, []
+
+    if verbose:
+        print(f"OK (n={len(Y_clean):,}, type=binary, values={n_unique}, roads={n_roads})")
+        print(f"    Fitting Causal Forest DML (road-grouped CV)...", end=' ', flush=True)
+    
+    # Road-grouped cross-fitting, balanced by Dataset ID (survey composition)
+    n_splits = min(5, n_roads)
+    if 'Dataset ID' not in data.columns:
+        raise KeyError("Dataset ID column is required to balance folds by survey composition")
+    dataset_id_clean = data.loc[valid_mask, 'Dataset ID'].to_numpy()
+    cv_splitter = DatasetStratifiedGroupKFold(
+        n_splits=n_splits,
+        dataset_id=dataset_id_clean,
+        shuffle=True,
+        random_state=42,
+    )
+
     nuisance_params = params.get("nuisance", {})
     forest_params = params.get("causal_forest", {})
 
-    nuisance_n_estimators = int(nuisance_params.get("n_estimators", 500))
-    nuisance_max_depth = int(nuisance_params.get("max_depth", 10))
-    nuisance_min_samples_leaf = int(nuisance_params.get("min_samples_leaf", 5))
-
-    cf_n_estimators = int(forest_params.get("n_estimators", 2000))
-    cf_max_depth = int(forest_params.get("max_depth", 8))
-    cf_min_samples_leaf = int(forest_params.get("min_samples_leaf", 10))
-    cf_mc_iters = int(forest_params.get("mc_iters", 4))
-
-    # Treatment model (propensity):
-    # For discrete treatments, EconML expects a classifier-like model_t.
-    model_t = RandomForestClassifier(
-            n_estimators=nuisance_n_estimators,
-            max_depth=nuisance_max_depth,
-            min_samples_leaf=nuisance_min_samples_leaf,
-            max_features='sqrt',
-            random_state=42,
-            n_jobs=-1
-        )
-    
-    # Initialize Causal Forest
-    cf_model = CausalForestDML(
-        # Nuisance models (g(X) and e(X))
-        model_y=RandomForestRegressor(
-            n_estimators=nuisance_n_estimators,
-            max_depth=nuisance_max_depth,
-            min_samples_leaf=nuisance_min_samples_leaf,
-            max_features='sqrt',
-            random_state=42,
-            n_jobs=-1
-        ),
-        model_t=model_t,
-        # Treat both binary and ordinal as discrete (multi-valued supported).
-        discrete_treatment=is_discrete,
-        
-        # Causal forest parameters (tau(X) estimation)
-        n_estimators=cf_n_estimators,          # Large forest for stability
-        max_depth=cf_max_depth,                # Captures interactions
-        min_samples_leaf=cf_min_samples_leaf,  # Prevents overfitting
-        min_var_fraction_leaf=0.1,  # Honest inference (honesty parameter)
-        min_var_leaf_on_val=True,   # Enable honesty
-        
-        # Cross-fitting (road-grouped for independence)
-        cv=cv_splitter,             # Road-grouped K-fold
-        mc_iters=cf_mc_iters,       # Monte Carlo iterations
-        
-        # Inference
-        inference=True,
-        random_state=42,
-        n_jobs=-1
+    cf_model = _build_cf_model(
+        nuisance_params=nuisance_params,
+        forest_params=forest_params,
+        cv_splitter=cv_splitter,
+        is_discrete=True,
     )
     
     try:
-        # Fit model on ALL data (with road-grouped cross-fitting)
+        gc.collect()
+
         cf_model.fit(
             Y=Y_clean, 
             T=T_clean, 
             X=X_clean,
-            W=None,  # All features can moderate effects
-            groups=groups_clean  # Road groups for cross-fitting
+            W=None,
+            groups=groups_clean
         )
         
         if verbose:
@@ -638,54 +830,66 @@ def fit_causal_forest(data, X_features, treatment, *, params: dict | None = None
             print(f"    Estimating segment-specific effects...", end=' ', flush=True)
 
         contrast_results = []
-        for t0, t1, contrast_type in contrasts:
-            segment_cates_valid = _as_1d(cf_model.effect(X_clean, T0=t0, T1=t1))
+        t0, t1, contrast_type = contrasts[0]
+        segment_cates_valid = _as_1d(cf_model.effect(X_clean, T0=t0, T1=t1))
 
-            # Get confidence intervals
-            try:
-                ci_valid = cf_model.effect_interval(X_clean, T0=t0, T1=t1, alpha=0.05)
-                ci_lower_valid = _as_1d(ci_valid[0])
-                ci_upper_valid = _as_1d(ci_valid[1])
-            except Exception:
-                if verbose:
-                    print(f"\n    Warning: CI estimation failed for {t0}->{t1}; using bootstrap (500 iterations)...")
-                bootstrap_cates = []
-                rng = np.random.default_rng(42)
-                for _ in range(500):
-                    idx = rng.choice(len(X_clean), len(X_clean), replace=True)
-                    bootstrap_cates.append(_as_1d(cf_model.effect(X_clean[idx], T0=t0, T1=t1)))
-                ci_lower_valid = np.percentile(bootstrap_cates, 2.5, axis=0)
-                ci_upper_valid = np.percentile(bootstrap_cates, 97.5, axis=0)
-
-            # Map back to full dataset (including invalid rows)
-            segment_cates = np.full(len(data), np.nan, dtype=float)
-            segment_cates[valid_mask] = segment_cates_valid
-
-            ci_lower = np.full(len(data), np.nan, dtype=float)
-            ci_upper = np.full(len(data), np.nan, dtype=float)
-            ci_lower[valid_mask] = ci_lower_valid
-            ci_upper[valid_mask] = ci_upper_valid
-
-            contrast_label = f"{treatment} [{int(t0)}→{int(t1)}]"
-            contrast_name = f"{treatment}__{int(t0)}_to_{int(t1)}"
-            contrast_results.append(
-                {
-                    "name": contrast_name,
-                    "label": contrast_label,
-                    "treatment_base": treatment,
-                    "t0": float(t0),
-                    "t1": float(t1),
-                    "contrast_type": contrast_type,
-                    "baseline_level": float(baseline_level),
-                    "levels": ordered_levels,
-                    "CATE_raw": segment_cates,
-                    "CATE_ci_lower": ci_lower,
-                    "CATE_ci_upper": ci_upper,
-                }
-            )
-
+        # Get confidence intervals
+        try:
+            ci_valid = cf_model.effect_interval(X_clean, T0=t0, T1=t1, alpha=0.05)
+            ci_lower_valid = _as_1d(ci_valid[0])
+            ci_upper_valid = _as_1d(ci_valid[1])
+        except Exception:
             if verbose:
-                print(f"\n    {contrast_label}: mean={np.nanmean(segment_cates):+.4f}, std={np.nanstd(segment_cates):.4f}")
+                print(f"\n    Warning: CI estimation failed; using bootstrap (200 iterations)...")
+            n_boot = 200
+            rng = np.random.default_rng(42)
+            n_valid = len(X_clean)
+            boot_sum = np.zeros(n_valid, dtype=float)
+            boot_sq_sum = np.zeros(n_valid, dtype=float)
+            for b_i in range(n_boot):
+                idx = rng.choice(n_valid, n_valid, replace=True)
+                b_cate = _as_1d(cf_model.effect(X_clean[idx], T0=t0, T1=t1))
+                boot_sum += b_cate
+                boot_sq_sum += b_cate ** 2
+                del b_cate, idx
+            boot_mean = boot_sum / n_boot
+            boot_std = np.sqrt(np.maximum(boot_sq_sum / n_boot - boot_mean ** 2, 0))
+            ci_lower_valid = boot_mean - 1.96 * boot_std
+            ci_upper_valid = boot_mean + 1.96 * boot_std
+            del boot_sum, boot_sq_sum, boot_mean, boot_std
+
+        # Map back to full dataset (including invalid rows)
+        segment_cates = np.full(len(data), np.nan, dtype=float)
+        segment_cates[valid_mask] = segment_cates_valid
+
+        ci_lower = np.full(len(data), np.nan, dtype=float)
+        ci_upper = np.full(len(data), np.nan, dtype=float)
+        ci_lower[valid_mask] = ci_lower_valid
+        ci_upper[valid_mask] = ci_upper_valid
+
+        contrast_label = f"{treatment} [{int(t0)}->{int(t1)}]"
+        contrast_name = f"{treatment}__{int(t0)}_to_{int(t1)}"
+        contrast_results.append(
+            {
+                "name": contrast_name,
+                "label": contrast_label,
+                "treatment_base": treatment,
+                "t0": float(t0),
+                "t1": float(t1),
+                "contrast_type": contrast_type,
+                "baseline_level": float(baseline_level),
+                "levels": ordered_levels,
+                "CATE_raw": segment_cates,
+                "CATE_ci_lower": ci_lower,
+                "CATE_ci_upper": ci_upper,
+            }
+        )
+
+        if verbose:
+            print(f"\n    {contrast_label}: mean={np.nanmean(segment_cates):+.4f}, std={np.nanstd(segment_cates):.4f}")
+
+        del segment_cates_valid, ci_lower_valid, ci_upper_valid
+        gc.collect()
 
         if verbose:
             print("OK")
@@ -1259,7 +1463,6 @@ def main(*, output_dir: Path, params: dict) -> None:
         for cr in contrast_results:
             name = cr['name']
             all_results[name] = {
-                'model': cf_model,
                 'treatment_base': cr.get('treatment_base', treatment),
                 't0': cr.get('t0'),
                 't1': cr.get('t1'),
@@ -1285,6 +1488,10 @@ def main(*, output_dir: Path, params: dict) -> None:
                     "levels": cr.get("levels"),
                 }
             )
+
+        # Free the fitted model to reclaim memory before next treatment
+        del cf_model, contrast_results
+        gc.collect()
     
     # Phase C: Road-level shrinkage (CHANGED from country-level)
     print("\n" + "="*70)
@@ -1328,6 +1535,62 @@ def main(*, output_dir: Path, params: dict) -> None:
         print(f"Warning: could not write stage2 contrast spec: {e}")
 
     output_dir = save_comprehensive_results(all_results, data, output_dir)
+
+    # ------------------------------------------------------------------
+    # PHASE E: POST-ESTIMATION DIAGNOSTICS
+    # SRIP mapping table, per-treatment SRIP agreement, SMD / covariate balance
+    # ------------------------------------------------------------------
+    try:
+        from stage2_diagnostics import run_all_diagnostics
+        from stage2_config import INPUT_DATA_DIR
+
+        # Attach shrunk CATEs to data so SRIP agreement can identify prescriptions.
+        # For ordinal treatments with multiple contrasts, combine using next-step
+        # logic: each segment gets the CATE from the contrast where its current
+        # canonical level equals t0 (the upgrade it could receive).
+        from collections import defaultdict as _defaultdict
+        _ordinal_groups = _defaultdict(list)
+        for contrast_name, res in all_results.items():
+            if res.get('CATE_shrunk') is None and res.get('CATE_raw') is None:
+                continue
+            tb = res["treatment_base"]
+            if res.get('contrast_type') == 'adjacent':
+                _ordinal_groups[tb].append(res)
+            else:
+                # Binary: single column per treatment
+                if res.get('CATE_shrunk') is not None:
+                    data[f'CATE_shrunk_{tb}'] = res['CATE_shrunk']
+                if res.get('CATE_raw') is not None:
+                    data[f'CATE_raw_{tb}'] = res['CATE_raw']
+
+        for tb, _contrasts in _ordinal_groups.items():
+            combined_shrunk = np.full(len(data), np.nan, dtype=float)
+            combined_raw = np.full(len(data), np.nan, dtype=float)
+            T_can = data[tb].values
+            for res in sorted(_contrasts, key=lambda x: x['t0']):
+                t0 = int(round(res['t0']))
+                seg_at_t0 = (np.round(T_can) == t0)
+                if res.get('CATE_shrunk') is not None:
+                    valid = seg_at_t0 & ~np.isnan(res['CATE_shrunk'])
+                    combined_shrunk[valid] = res['CATE_shrunk'][valid]
+                if res.get('CATE_raw') is not None:
+                    valid = seg_at_t0 & ~np.isnan(res['CATE_raw'])
+                    combined_raw[valid] = res['CATE_raw'][valid]
+            data[f'CATE_shrunk_{tb}'] = combined_shrunk
+            data[f'CATE_raw_{tb}'] = combined_raw
+
+        countermeasure_csv = INPUT_DATA_DIR / 'countermeasures.csv'
+        run_all_diagnostics(
+            analysis_data=data,
+            X_features=X_features,
+            treatments=viable_treatments,
+            output_dir=output_dir,
+            countermeasure_csv=countermeasure_csv,
+        )
+    except Exception as e_diag:
+        import traceback as _tb_diag
+        print(f"\n[WARN] Post-estimation diagnostics failed: {e_diag}")
+        _tb_diag.print_exc()
     
     # Final summary
     end_time = datetime.now()
@@ -1358,10 +1621,10 @@ if __name__ == "__main__":
     parser.add_argument("--nuisance-n-estimators", type=int, default=500)
     parser.add_argument("--nuisance-max-depth", type=int, default=10)
     parser.add_argument("--nuisance-min-samples-leaf", type=int, default=5)
-    parser.add_argument("--cf-n-estimators", type=int, default=2000)
+    parser.add_argument("--cf-n-estimators", type=int, default=1000)
     parser.add_argument("--cf-max-depth", type=int, default=8)
-    parser.add_argument("--cf-min-samples-leaf", type=int, default=10)
-    parser.add_argument("--cf-mc-iters", type=int, default=4)
+    parser.add_argument("--cf-min-samples-leaf", type=int, default=50)
+    parser.add_argument("--cf-mc-iters", type=int, default=2)
 
     args = parser.parse_args()
 

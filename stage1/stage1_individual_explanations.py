@@ -2142,7 +2142,7 @@ def generate_per_dataset_top_risk_shap(
                 plt.close(fig)
                 files_created.append(str(plot_path))
                 
-                print(f"  ✓ SHAP analysis saved: {plot_path.name}")
+                print(f"  [OK] SHAP analysis saved: {plot_path.name}")
                 
                 # Store summary
                 dataset_summaries.append({
@@ -2577,7 +2577,7 @@ def generate_regional_shap_analysis(
                 csv_path = regional_dir / f'{region_key}_{population_key}_aggregated_shap.csv'
                 agg_df.to_csv(csv_path, index=False)
                 files_created.append(str(csv_path))
-                print(f"  ✓ Saved: {csv_path.name}")
+                print(f"  [OK] Saved: {csv_path.name}")
 
                 bar_path = _create_regional_bar_plot(
                     agg_df,
@@ -2757,7 +2757,7 @@ def _create_regional_bar_plot(agg_df, region_name, region_info, datasets, output
     plt.savefig(plot_path, dpi=300, bbox_inches='tight')
     plt.close()
     
-    print(f"  ✓ Bar plot: {plot_path.name}")
+    print(f"  [OK] Bar plot: {plot_path.name}")
     return plot_path
 
 
@@ -2927,5 +2927,5 @@ def _create_regional_violin_plot(dataset_shap_data, datasets, agg_df, region_nam
     plt.savefig(plot_path, dpi=300, bbox_inches='tight')
     plt.close()
 
-    print(f"  ✓ Enhanced violin plot: {plot_path.name}")
+    print(f"  [OK] Enhanced violin plot: {plot_path.name}")
     return plot_path

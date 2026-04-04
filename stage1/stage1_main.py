@@ -993,6 +993,66 @@ def main():
                 print(f"[WARN] Extended ranking metrics computation failed: {e}")
 
             # --------------------------------------------------------------
+            # STEP 2b: K-SENSITIVITY + BOOTSTRAP CIs (kappa, overlap)
+            # Computes Cohen's kappa and mean overlap@K for every K in
+            # HOTSPOT_K_LIST, with road-resampled bootstrap 95 % CIs.
+            # Saves k_sensitivity_results.csv for the paper.
+            # --------------------------------------------------------------
+            try:
+                from evaluation_utils import compute_kappa_from_per_road_metrics, bootstrap_metric
+                k_list_sens = sorted(set(cfg.HOTSPOT_K_LIST))
+                print(f"\n[INFO] K-sensitivity analysis for K = {k_list_sens}")
+
+                # Build per-segment OOF table with road labels
+                _oof_df = master_pred_df.copy()
+                _oof_road = metadata_df[[id_col_use, cfg.ROAD_COLUMN_NAME]].drop_duplicates()
+                _oof_df = _oof_df.merge(
+                    _oof_road,
+                    left_on='segment_id', right_on=id_col_use, how='left',
+                )
+                if cfg.ROAD_COLUMN_NAME not in _oof_df.columns and 'Road name' not in _oof_df.columns:
+                    _oof_df.rename(columns={cfg.ROAD_COLUMN_NAME: 'Road name'}, inplace=True)
+                road_col_name = 'Road name' if 'Road name' in _oof_df.columns else cfg.ROAD_COLUMN_NAME
+
+                n_boot = getattr(cfg, 'BOOTSTRAP_N_ITERATIONS', 2000)
+                k_sens_rows = []
+                for k_val in k_list_sens:
+                    kappa_res = bootstrap_metric(
+                        _oof_df, k_val, metric_fn='kappa', n_boot=n_boot,
+                        id_col='segment_id', pred_col='predicted_risk',
+                        actual_col='actual_risk', road_col=road_col_name,
+                    )
+                    overlap_res = bootstrap_metric(
+                        _oof_df, k_val, metric_fn='overlap', n_boot=n_boot,
+                        id_col='segment_id', pred_col='predicted_risk',
+                        actual_col='actual_risk', road_col=road_col_name,
+                    )
+                    k_sens_rows.append({
+                        'K': k_val,
+                        'kappa': kappa_res['point'],
+                        'kappa_ci_lower': kappa_res['ci_lower'],
+                        'kappa_ci_upper': kappa_res['ci_upper'],
+                        'kappa_se': kappa_res['se'],
+                        'overlap': overlap_res['point'],
+                        'overlap_ci_lower': overlap_res['ci_lower'],
+                        'overlap_ci_upper': overlap_res['ci_upper'],
+                        'overlap_se': overlap_res['se'],
+                    })
+                    print(f"  K={k_val}: kappa={kappa_res['point']:.4f} "
+                          f"[{kappa_res['ci_lower']:.4f}, {kappa_res['ci_upper']:.4f}], "
+                          f"overlap={overlap_res['point']:.4f} "
+                          f"[{overlap_res['ci_lower']:.4f}, {overlap_res['ci_upper']:.4f}]")
+
+                k_sens_df = pd.DataFrame(k_sens_rows)
+                k_sens_path = cv_dirs['fold_results'] / 'k_sensitivity_results.csv'
+                k_sens_df.to_csv(k_sens_path, index=False)
+                print(f"[INFO] K-sensitivity results saved: {k_sens_path}")
+            except Exception as e_ksens:
+                import traceback as _tb
+                print(f"[WARN] K-sensitivity analysis failed: {e_ksens}")
+                _tb.print_exc()
+
+            # --------------------------------------------------------------
             # STEP 3: HOTSPOT-FOCUSED OOF SHAP
             # For each fold we:
             #   * Refit model on training fold.
@@ -1384,17 +1444,17 @@ def main():
                                 try:
                                     # Normalize predictions for color scaling
                                     risk_df = master_pred_df.copy()
-                                    if {'latitude','longitude','pred_log'}.issubset(risk_df.columns):
+                                    if {'latitude','longitude','predicted_risk'}.issubset(risk_df.columns):
                                         layers.append(go.Scattermap(
                                             lat=risk_df['latitude'],
                                             lon=risk_df['longitude'],
                                             mode='markers',
-                                            marker={'size':4,'color':risk_df['pred_log'], 'colorscale':'Viridis', 'showscale':True},
-                                            name='Pred log risk (all)',
+                                            marker={'size':4,'color':risk_df['predicted_risk'], 'colorscale':'Viridis', 'showscale':True},
+                                            name='Predicted risk (all)',
                                                 hovertext=[
-                                                    (f"ID: {getattr(r, 'segment_id', 'NA')}<br>Pred log: {getattr(r, 'pred_log', 'NA'):.3f}" 
-                                                     if (getattr(r, 'pred_log', None) is not None and not pd.isna(getattr(r, 'pred_log', None)))
-                                                     else f"ID: {getattr(r, 'segment_id', 'NA')}<br>Pred log: NA")
+                                                    (f"ID: {getattr(r, 'segment_id', 'NA')}<br>Pred: {getattr(r, 'predicted_risk', 'NA'):.3f}" 
+                                                     if (getattr(r, 'predicted_risk', None) is not None and not pd.isna(getattr(r, 'predicted_risk', None)))
+                                                     else f"ID: {getattr(r, 'segment_id', 'NA')}<br>Pred: NA")
                                                     for r in risk_df.itertuples()
                                                 ],
                                             visible='legendonly'
