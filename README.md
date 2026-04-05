@@ -127,7 +127,5 @@ They should not be described as direct estimates of crash reduction on observed 
 If this repository helped you in any way, please support us and cite the corresponding paper. Thank you.
 
 ```
-
 Hassani, A., Abramović, B., Shahid, M., & Ševrović, M. (2026). Auditing iRAP’s ViDA Risk Engine: A Two-Stage Surrogate Learning and Orthogonalized Heterogeneity Framework for Modelled Road Safety. Infrastructures, 11(4), 129. https://doi.org/10.3390/infrastructures11040129
-
 ```
