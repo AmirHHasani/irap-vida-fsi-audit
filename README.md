@@ -122,7 +122,13 @@ For consistency with the paper:
 
 They should not be described as direct estimates of crash reduction on observed crash data.
 
+## More Info
+
 ## Citation
+
+You can also check the website below for more information about the Project SENSoR technical reports.
+
+https://makeroadssafehellas.gr/en/sensor-project/
 
 If this repository helped you in any way, please support us and cite the corresponding paper. Thank you.
 
