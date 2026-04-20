@@ -130,6 +130,8 @@ https://makeroadssafehellas.gr/en/sensor-project/
 
 If this repository helped you in any way, please support us and cite the corresponding paper. Thank you.
 
+https://doi.org/10.3390/infrastructures11040129
+
 ```
 Hassani, A., Abramović, B., Shahid, M., & Ševrović, M. (2026). Auditing iRAP’s ViDA Risk Engine: A Two-Stage Surrogate Learning and Orthogonalized Heterogeneity Framework for Modelled Road Safety. Infrastructures, 11(4), 129. https://doi.org/10.3390/infrastructures11040129
 ```
