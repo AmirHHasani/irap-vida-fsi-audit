@@ -1,0 +1,59 @@
+cff-version: 1.2.0
+
+message: "If you use this software, please cite the associated article and this software release."
+
+type: software
+
+title: "Auditing iRAP's ViDA Risk Engine"
+
+authors:
+  - family-names: Hassani
+    given-names: Amirhossein
+    orcid: "https://orcid.org/0009-0003-8862-4108"
+
+version: "6.5.1"
+
+date-released: "2026-09-04"
+
+repository-code: "https://github.com/AmirHHasani/irap-vida-fsi-audit"
+
+url: "https://github.com/AmirHHasani/irap-vida-fsi-audit"
+
+license: Apache-2.0
+
+abstract: >-
+  Research code for auditing the iRAP ViDA modelled
+  fatal-and-serious-injury (FSI) risk surface using a two-stage
+  workflow combining surrogate modelling with orthogonalized
+  heterogeneity analysis and association-based candidate road-safety
+  upgrade generation.
+
+keywords:
+  - road safety
+  - iRAP
+  - ViDA
+  - fatal and serious injury
+  - machine learning
+  - surrogate modelling
+  - double machine learning
+  - causal forest
+  - hotspot detection
+  - SHAP
+
+preferred-citation:
+  type: article
+  authors:
+    - family-names: Hassani
+      given-names: Amirhossein
+    - family-names: Abramović
+      given-names: Borna
+    - family-names: Shahid
+      given-names: Muhammad
+    - family-names: Ševrović
+      given-names: Marko
+  title: "Auditing iRAP’s ViDA Risk Engine: A Two-Stage Surrogate Learning and Orthogonalized Heterogeneity Framework for Modelled Road Safety"
+  journal: Infrastructures
+  year: 2026
+  volume: 11
+  issue: 4
+  doi: "10.3390/infrastructures11040129"
